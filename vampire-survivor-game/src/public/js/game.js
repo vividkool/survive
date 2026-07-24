@@ -84,10 +84,11 @@ function generateMap() {
       } else {
         // 各マスの地形タイプをランダム分配
         const rand = Math.random();
-        if (rand < 0.20) type = 'HOSTILE';     // 敵地 (20%)
-        else if (rand < 0.40) type = 'RUINS';   // 廃屋 (20%)
-        else if (rand < 0.55) type = 'ARMORY';  // 武器庫 (15%)
-        else type = 'PLAIN';                    // 平原 (45%)
+        if (rand < 0.20) type = 'HOSTILE';        // 敵地 (20%)
+        else if (rand < 0.35) type = 'RUINS';      // 廃屋 (15%)
+        else if (rand < 0.48) type = 'ARMORY';     // 武器庫 (13%)
+        else if (rand < 0.65) type = 'WILDERNESS'; // 未開拓地 (17%)
+        else type = 'PLAIN';                       // 平原 (35%)
       }
       
       gridMap[y][x] = new MapCell(x, y, type);
@@ -99,11 +100,13 @@ function generateMap() {
   revealSurroundings(0, 0);
 }
 
-// 周囲のマスを「未探索」として視界に入れる
+// 周囲のマスを「探索済み」にして視界に入れる（マインスイーパのように周囲の情報を明らかにする）
 function revealSurroundings(px, py) {
+  // プレイヤーの周囲8マス
   const neighbors = [
-    {x: px - 1, y: py}, {x: px + 1, y: py},
-    {x: px, y: py - 1}, {x: px, y: py + 1}
+    {x: px - 1, y: py - 1}, {x: px, y: py - 1}, {x: px + 1, y: py - 1},
+    {x: px - 1, y: py},                         {x: px + 1, y: py},
+    {x: px - 1, y: py + 1}, {x: px, y: py + 1}, {x: px + 1, y: py + 1}
   ];
   for (let n of neighbors) {
     if (n.x >= 0 && n.x < gridSize && n.y >= 0 && n.y < gridSize) {

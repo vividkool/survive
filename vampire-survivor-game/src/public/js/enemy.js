@@ -15,7 +15,7 @@ class MapCell {
       case 'CAMP':
         return {
           name: "味方の旧野営地",
-          noiseLevel: 5, // ハルシネーション確率：極小
+          noiseLevel: 5,
           color: "#052e16",
           textColor: "#4ade80",
           description: "安全な旧野営地。ジャミング電波はありません。"
@@ -31,7 +31,7 @@ class MapCell {
       case 'PLAIN':
         return {
           name: "荒野の平原",
-          noiseLevel: 20, // 比較的安全
+          noiseLevel: 20,
           color: "#18181b",
           textColor: "#a1a1aa",
           description: "見晴らしの良い平地。電波は安定しています。"
@@ -39,7 +39,7 @@ class MapCell {
       case 'RUINS':
         return {
           name: "廃屋の瓦礫",
-          noiseLevel: 45, // 中程度のノイズ
+          noiseLevel: 45,
           color: "#27272a",
           textColor: "#d4d4d8",
           description: "放棄された建物群。物資があるが、ノイズが混じります。"
@@ -47,7 +47,7 @@ class MapCell {
       case 'ARMORY':
         return {
           name: "旧軍の武器庫",
-          noiseLevel: 65, // 不安定
+          noiseLevel: 65,
           color: "#451a03",
           textColor: "#f97316",
           description: "弾薬調達が可能。ただし電磁障害が多発。"
@@ -55,10 +55,18 @@ class MapCell {
       case 'HOSTILE':
         return {
           name: "敵自律ロボ支配地",
-          noiseLevel: 90, // 極めて高いノイズ（ハルシネーション危険地帯）
+          noiseLevel: 90,
           color: "#450a0a",
           textColor: "#f87171",
           description: "敵哨戒ロボの支配地域。極めて強い電波妨害。"
+        };
+      case 'WILDERNESS':
+        return {
+          name: "未開拓地",
+          noiseLevel: 35,
+          color: "#0f172a",
+          textColor: "#38bdf8",
+          description: "手つかずの密林地帯。ノイズは低めだが移動が困難。"
         };
     }
   }
