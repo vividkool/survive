@@ -82,11 +82,12 @@ function generateMap() {
       } else if (x === 9 && y === 9) {
         type = 'HOSPITAL';
       } else {
-        // 残りはランダム分布
+        // 各マスの地形タイプをランダム分配
         const rand = Math.random();
-        if (rand < 0.15) type = 'HOSTILE';
-        else if (rand < 0.3) type = 'RUINS';
-        else if (rand < 0.4) type = 'ARMORY';
+        if (rand < 0.20) type = 'HOSTILE';     // 敵地 (20%)
+        else if (rand < 0.40) type = 'RUINS';   // 廃屋 (20%)
+        else if (rand < 0.55) type = 'ARMORY';  // 武器庫 (15%)
+        else type = 'PLAIN';                    // 平原 (45%)
       }
       
       gridMap[y][x] = new MapCell(x, y, type);
