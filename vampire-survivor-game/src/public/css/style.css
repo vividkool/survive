@@ -1,3 +1,22 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Inter:wght@300;400;600&display=swap');
+
+:root {
+  --bg-primary: #0a0b0d;
+  --bg-secondary: #12141c;
+  --border-color: #242936;
+  --text-primary: #e2e8f0;
+  --text-muted: #64748b;
+  
+  --accent-cyan: #00f0ff;
+  --accent-green: #39ff14;
+  --accent-red: #ff3b30;
+  --accent-orange: #ff9500;
+  
+  --glow-cyan: rgba(0, 240, 255, 0.4);
+  --glow-green: rgba(57, 255, 20, 0.4);
+  --glow-red: rgba(255, 59, 48, 0.4);
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -5,35 +24,341 @@
 }
 
 body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  height: 100vh;
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100vh;
-  background-color: #222;
+  overflow: hidden;
 }
 
-.game-container {
+/* スプリットレイアウト */
+.app-container {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  max-width: 1400px;
+  max-height: 900px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* 左側：ゲームフィールド */
+.game-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: #050608;
   position: relative;
+  border-right: 1px solid var(--border-color);
+}
+
+.game-header {
+  height: 50px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 20px;
+  background-color: rgba(18, 20, 28, 0.8);
+  border-bottom: 1px solid var(--border-color);
+  font-family: 'Orbitron', sans-serif;
+  letter-spacing: 1px;
+}
+
+.system-title {
+  color: var(--accent-cyan);
+  font-weight: 700;
+  text-shadow: 0 0 8px var(--glow-cyan);
+}
+
+.day-counter {
+  color: var(--text-primary);
+}
+
+.canvas-container {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  background: radial-gradient(circle, rgba(18,20,28,1) 0%, rgba(5,6,8,1) 100%);
 }
 
 canvas {
   display: block;
-  background-color: #333;
-  border: 2px solid #555;
+  border: 1px solid var(--border-color);
+  background-color: #030406;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
 }
 
-.score-container {
-  margin-top: 10px;
-  text-align: center;
-  color: white;
-  font-family: Arial, sans-serif;
-  font-size: 18px;
+/* 右側：HUD / AI会話 */
+.hud-section {
+  width: 450px;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-secondary);
 }
 
-.player {
-  fill: #00ff00; /* プレイヤーキャラクターの色（緑） */
+.hud-panel {
+  padding: 20px;
+  border-bottom: 1px solid var(--border-color);
 }
 
-.enemy {
-  fill: #ff0000; /* 敵キャラクターの色（赤） */
+.hud-panel-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  letter-spacing: 2px;
+}
+
+/* メーターとステータス */
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.status-card {
+  background: rgba(10, 11, 13, 0.5);
+  border: 1px solid var(--border-color);
+  padding: 10px;
+  border-radius: 4px;
+}
+
+.status-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.status-value {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+/* AI コグニティブステータス */
+.ai-status-card {
+  grid-column: span 2;
+  border-color: rgba(0, 240, 255, 0.2);
+}
+
+.progress-bar-bg {
+  width: 100%;
+  height: 6px;
+  background-color: #0a0b0d;
+  border-radius: 3px;
+  margin-top: 5px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.fill-cyan {
+  background-color: var(--accent-cyan);
+  box-shadow: 0 0 8px var(--glow-cyan);
+}
+
+.fill-red {
+  background-color: var(--accent-red);
+  box-shadow: 0 0 8px var(--glow-red);
+}
+
+.fill-green {
+  background-color: var(--accent-green);
+  box-shadow: 0 0 8px var(--glow-green);
+}
+
+/* ロボット対話モジュール */
+.chat-module {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.chat-history {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background-color: rgba(10, 11, 13, 0.3);
+}
+
+.message {
+  max-width: 90%;
+  display: flex;
+  flex-direction: column;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.message.robot {
+  align-self: flex-start;
+}
+
+.message.player {
+  align-self: flex-end;
+}
+
+.message-sender {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.message.robot .message-sender {
+  color: var(--accent-cyan);
+}
+
+.message.player .message-sender {
+  color: var(--accent-green);
+}
+
+.message-bubble {
+  padding: 12px 16px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  background-color: rgba(36, 41, 54, 0.4);
+  border: 1px solid var(--border-color);
+}
+
+.message.robot .message-bubble {
+  border-left: 3px solid var(--accent-cyan);
+}
+
+.message.player .message-bubble {
+  border-right: 3px solid var(--accent-green);
+  background-color: rgba(57, 255, 20, 0.05);
+}
+
+/* AI警告ログ */
+.warning-bubble {
+  border-left: 3px solid var(--accent-red) !important;
+  background-color: rgba(255, 59, 48, 0.05) !important;
+  color: #ff8e8a;
+  animation: pulse-red 2s infinite;
+}
+
+@keyframes pulse-red {
+  0% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.2); }
+  70% { box-shadow: 0 0 0 6px rgba(255, 59, 48, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); }
+}
+
+/* コントロール・ボタンセクション */
+.decision-controls {
+  padding: 20px;
+  background-color: rgba(10, 11, 13, 0.6);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.action-row {
+  display: flex;
+  gap: 10px;
+}
+
+.btn {
+  flex: 1;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  background-color: transparent;
+  color: var(--text-primary);
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.8rem;
+  font-weight: bold;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  letter-spacing: 1px;
+}
+
+.btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.btn-cyan {
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+}
+
+.btn-cyan:hover:not(:disabled) {
+  background-color: var(--accent-cyan);
+  color: var(--bg-primary);
+  box-shadow: 0 0 12px var(--glow-cyan);
+}
+
+.btn-red {
+  border-color: var(--accent-red);
+  color: var(--accent-red);
+}
+
+.btn-red:hover:not(:disabled) {
+  background-color: var(--accent-red);
+  color: var(--bg-primary);
+  box-shadow: 0 0 12px var(--glow-red);
+}
+
+.btn-green {
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+}
+
+.btn-green:hover:not(:disabled) {
+  background-color: var(--accent-green);
+  color: var(--bg-primary);
+  box-shadow: 0 0 12px var(--glow-green);
+}
+
+/* ゲームオーバー画面等のオーバーレイ */
+.overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(10, 11, 13, 0.9);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 10;
+  animation: fadeIn 0.3s ease;
+}
+
+.overlay h2 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 2rem;
+  color: var(--accent-red);
+  text-shadow: 0 0 10px var(--glow-red);
+  margin-bottom: 16px;
+}
+
+.overlay p {
+  font-size: 0.95rem;
+  margin-bottom: 24px;
+  color: var(--text-muted);
 }

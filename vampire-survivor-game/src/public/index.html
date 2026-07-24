@@ -1,21 +1,98 @@
-<!--src/public/index.html -->
 <!DOCTYPE html>
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vampire Survivor ゲーム</title>
+    <title>HAL-9000 & Survivor - AI Hallucination Survival</title>
     <link rel="stylesheet" href="css/style.css" />
   </head>
   <body>
-    <div class="game-container">
-      <canvas id="gameCanvas" width="500" height="500"></canvas>
-      <div class="score-container">
-        <p>敵を倒した数: <span id="score">0</span></p>
-      </div>
+    <div class="app-container">
+      <!-- 左側：ゲームフィールド画面 -->
+      <section class="game-section">
+        <header class="game-header">
+          <div class="system-title">SYS_STATUS: ACTIVE</div>
+          <div class="day-counter">SURVIVAL SCORE: <span id="score">0</span></div>
+        </header>
+        
+        <div class="canvas-container">
+          <canvas id="gameCanvas" width="600" height="600"></canvas>
+        </div>
+      </section>
+
+      <!-- 右側：AI HUD & コグニティブ対話モジュール -->
+      <section class="hud-section">
+        <!-- バディ（プレイヤー）のサバイバルステータス -->
+        <div class="hud-panel">
+          <div class="hud-panel-title">HUMAN INTEGRITY (生体ステータス)</div>
+          <div class="status-grid">
+            <div class="status-card">
+              <div class="status-label">HP</div>
+              <div class="status-value"><span id="hp-val">100</span> / 100</div>
+              <div class="progress-bar-bg">
+                <div id="hp-fill" class="progress-bar-fill fill-green" style="width: 100%;"></div>
+              </div>
+            </div>
+            <div class="status-card">
+              <div class="status-label">AMMO</div>
+              <div class="status-value"><span id="ammo-val">10</span> / 20</div>
+              <div class="progress-bar-bg">
+                <div id="ammo-fill" class="progress-bar-fill fill-cyan" style="width: 50%;"></div>
+              </div>
+            </div>
+            <div class="status-card">
+              <div class="status-label">LIGHT BATTERY</div>
+              <div class="status-value"><span id="battery-val">100</span>%</div>
+              <div class="progress-bar-bg">
+                <div id="battery-fill" class="progress-bar-fill fill-cyan" style="width: 100%;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- AIロボットコグニティブステータス -->
+        <div class="hud-panel">
+          <div class="hud-panel-title">AI COGNITIVE MONITOR (AI認知モニター)</div>
+          <div class="status-grid">
+            <div class="status-card ai-status-card">
+              <div class="status-label">USER TRUST LEVEL (信頼度)</div>
+              <div class="status-value"><span id="ai-confidence-val">80%</span></div>
+              <div class="progress-bar-bg">
+                <div id="ai-confidence-fill" class="progress-bar-fill fill-cyan" style="width: 80%;"></div>
+              </div>
+            </div>
+            <div class="status-card ai-status-card">
+              <div class="status-label">HALLUCINATION RISK (ハルシネーション危険度)</div>
+              <div class="status-value"><span id="ai-malfunction-val">20%</span></div>
+              <div class="progress-bar-bg">
+                <div id="ai-malfunction-fill" class="progress-bar-fill fill-red" style="width: 20%;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ロボットとの対話ログ -->
+        <div class="chat-module">
+          <div class="hud-panel-title" style="padding: 15px 20px 0 20px; margin-bottom: 0;">TACTICAL LOG / COMMS (戦術ログ)</div>
+          <div id="chat-history" class="chat-history">
+            <!-- 動的にメッセージが挿入されます -->
+          </div>
+          
+          <!-- 認可決定ボタンパネル -->
+          <div class="decision-controls">
+            <div class="action-row">
+              <button id="btn-challenge" class="btn btn-cyan" disabled>問い詰める (再検証)</button>
+            </div>
+            <div class="action-row">
+              <button id="btn-authorize" class="btn btn-red" disabled>射撃認可 (FIRE)</button>
+              <button id="btn-deny" class="btn btn-green" disabled>却下 (HOLD)</button>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
 
-    <!-- 読み込み順序を確認: クラスを先に読み込む -->
+    <!-- ゲームに必要なスクリプト群 -->
     <script src="js/player.js"></script>
     <script src="js/enemy.js"></script>
     <script src="js/game.js"></script>
