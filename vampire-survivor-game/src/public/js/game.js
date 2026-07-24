@@ -177,23 +177,23 @@ function executeMove(tx, ty) {
   }
   
   if (cell.type === 'HOSTILE') {
-    // 敵地での遭遇
-    const isCombat = Math.random() > 0.3;
+    // 敵地での遭遇確率を「時々（15%）」に低下させる
+    const isCombat = Math.random() < 0.15;
     if (isCombat) {
       triggerCombatEvent();
     }
   } else if (cell.type === 'RUINS') {
     // 廃屋での物資獲得
-    if (Math.random() > 0.4) {
-      const foundBattery = Math.floor(20 + Math.random() * 20);
+    if (Math.random() > 0.5) {
+      const foundBattery = Math.floor(15 + Math.random() * 15);
       player.battery = Math.min(player.maxBattery, player.battery + foundBattery);
       addMessage('SYSTEM', `廃墟の残骸からバッテリーセルを発見。ライト充電率が ${foundBattery}% 上昇。`);
     }
   } else if (cell.type === 'ARMORY') {
-    // 武器庫での弾薬獲得
-    const foundAmmo = Math.floor(3 + Math.random() * 4);
+    // 武器庫での弾薬獲得（量を極めて貴重に: 1〜2発のみ）
+    const foundAmmo = Math.floor(1 + Math.random() * 2);
     player.ammo = Math.min(player.maxAmmo, player.ammo + foundAmmo);
-    addMessage('SYSTEM', `旧軍のロッカーから弾薬を ${foundAmmo} 発回収。`);
+    addMessage('SYSTEM', `旧軍の防錆弾薬箱から、貴重な実弾を ${foundAmmo} 発回収しました。`);
   }
 
   // ターン終了後の生死判定
@@ -209,15 +209,16 @@ function executeMove(tx, ty) {
 // 敵遭遇イベント
 function triggerCombatEvent() {
   if (player.ammo > 0) {
-    player.ammo = Math.max(0, player.ammo - 2);
-    player.familyPanic = Math.min(100, player.familyPanic + 20);
-    addMessage('SYSTEM', "敵と遭遇！ 自動防御システムが起動し、弾薬を2消費して敵を撃退しました。", true);
+    // 撃退時の消費も1発にして弾薬の価値を向上
+    player.ammo = Math.max(0, player.ammo - 1);
+    player.familyPanic = Math.min(100, player.familyPanic + 15);
+    addMessage('SYSTEM', "【警告】敵と接近遭遇！ 防御システムが実弾を1発消費し、最小限の射撃で敵を撃退しました。", true);
   } else {
-    // 弾薬がない場合は家族と本人が被弾
-    player.hp = Math.max(0, player.hp - 20);
-    player.familyHp = Math.max(0, player.familyHp - 25);
-    player.familyPanic = Math.min(100, player.familyPanic + 40);
-    addMessage('SYSTEM', "敵ロボットに急襲されました！ 武器の残弾がなく、激しい損傷を受けました！", true);
+    // 弾薬がない場合は家族と本人が被弾（致命的）
+    player.hp = Math.max(0, player.hp - 35);
+    player.familyHp = Math.max(0, player.familyHp - 30);
+    player.familyPanic = Math.min(100, player.familyPanic + 45);
+    addMessage('SYSTEM', "【緊急警告】敵ロボットに強襲されました！ 弾薬（AMMO）が空だったため、物理的な突撃を受け極めて深刻なダメージを負いました！", true);
   }
 }
 
