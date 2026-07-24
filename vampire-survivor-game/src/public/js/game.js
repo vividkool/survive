@@ -360,13 +360,69 @@ function adjustSignalWave() {
 // 初期化
 function init() {
   generateMap();
-  addMessage('HAL-9000', "システムオンライン。目的地はマップ右下(9,9)の『医療ステーション』です。矢印キーまたはWASDで進みたい隣接マスを選択してください。私の推薦分析と通信ノイズを信じるか、迂回するかはあなた次第です。");
+  addMessage('HAL-9000', "システムオンライン。目的地はマップ右下(9,9)の『医療ステーション』です。隣接するマスをタップまたはクリックして移動先を選択してください。私の推薦分析と通信ノイズを信じるか、迂回するかはあなた次第です。");
   updateHUD();
   
+  // マウス・タッチ移動のリスナー追加
+  canvas.addEventListener("click", handleCanvasClick);
+  canvas.addEventListener("touchstart", handleCanvasTouch, { passive: true });
+
   // 1秒周期でシグナル波形揺らぎの同期
   setInterval(() => {
     adjustSignalWave();
   }, 1000);
+}
+
+// キャンバスクリック検知
+function handleCanvasClick(e) {
+  if (gameMode !== 'EXPLORE' || gameOver) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  
+  const clickX = (e.clientX - rect.left) * scaleX;
+  const clickY = (e.clientY - rect.top) * scaleY;
+
+  const targetX = Math.floor(clickX / cellSize);
+  const targetY = Math.floor(clickY / cellSize);
+
+  checkAndTriggerMove(targetX, targetY);
+}
+
+// タッチ操作検知
+function handleCanvasTouch(e) {
+  if (gameMode !== 'EXPLORE' || gameOver) return;
+  if (e.touches.length === 0) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+
+  const touch = e.touches[0];
+  const touchX = (touch.clientX - rect.left) * scaleX;
+  const touchY = (touch.clientY - rect.top) * scaleY;
+
+  const targetX = Math.floor(touchX / cellSize);
+  const targetY = Math.floor(touchY / cellSize);
+
+  checkAndTriggerMove(targetX, targetY);
+}
+
+// 隣接マス判定と移動トリガー
+function checkAndTriggerMove(targetX, targetY) {
+  // 範囲外チェック
+  if (targetX < 0 || targetX >= gridSize || targetY < 0 || targetY >= gridSize) return;
+
+  // 現在地から1マス離れた上下左右（隣接マス）のみ移動可能
+  const dx = Math.abs(targetX - player.gridX);
+  const dy = Math.abs(targetY - player.gridY);
+
+  if ((dx === 1 && dy === 0) || (dx === 0 && dy === 1)) {
+    startDecisionMode(targetX, targetY);
+  } else {
+    addMessage('SYSTEM', "そこには移動できません。前後左右の隣接するマスを選択してください。");
+  }
 }
 
 // 描画ループ
