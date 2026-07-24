@@ -118,6 +118,51 @@ canvas {
   letter-spacing: 2px;
 }
 
+/* アコーディオンドロワー構造 */
+.integrity-drawer {
+  position: relative;
+}
+
+.drawer-toggle {
+  display: none; /* チェックボックス自体は隠す */
+}
+
+.drawer-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  margin-bottom: 0; /* 折りたたみ時は下マージンなし */
+}
+
+.drawer-arrow {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.72rem;
+  color: var(--accent-cyan);
+  text-shadow: 0 0 6px var(--glow-cyan);
+  transition: all 0.2s ease;
+}
+
+.drawer-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s cubic-bezier(0, 1, 0, 1);
+  margin-top: 0;
+}
+
+/* チェック時にドロワー展開 */
+.drawer-toggle:checked ~ .drawer-content {
+  max-height: 200px;
+  margin-top: 10px;
+  transition: max-height 0.3s ease-in-out;
+}
+
+.drawer-toggle:checked ~ .drawer-label .drawer-arrow {
+  color: var(--accent-red);
+  text-shadow: 0 0 6px var(--glow-red);
+}
+
 /* メーターとステータス */
 .status-grid {
   display: grid;
