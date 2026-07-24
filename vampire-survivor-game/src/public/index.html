@@ -22,12 +22,12 @@
 
       <!-- 右側：AI HUD & コグニティブ対話モジュール -->
       <section class="hud-section">
-        <!-- バディ（プレイヤー）のサバイバルステータス -->
+        <!-- プレイヤー（本人）のサバイバルステータス -->
         <div class="hud-panel">
-          <div class="hud-panel-title">HUMAN INTEGRITY (生体ステータス)</div>
+          <div class="hud-panel-title">HUMAN INTEGRITY (本人ステータス)</div>
           <div class="status-grid">
             <div class="status-card">
-              <div class="status-label">HP</div>
+              <div class="status-label">YOUR HP</div>
               <div class="status-value"><span id="hp-val">100</span> / 100</div>
               <div class="progress-bar-bg">
                 <div id="hp-fill" class="progress-bar-fill fill-green" style="width: 100%;"></div>
@@ -35,9 +35,9 @@
             </div>
             <div class="status-card">
               <div class="status-label">AMMO</div>
-              <div class="status-value"><span id="ammo-val">10</span> / 20</div>
+              <div class="status-value"><span id="ammo-val">6</span> / 20</div>
               <div class="progress-bar-bg">
-                <div id="ammo-fill" class="progress-bar-fill fill-cyan" style="width: 50%;"></div>
+                <div id="ammo-fill" class="progress-bar-fill fill-cyan" style="width: 30%;"></div>
               </div>
             </div>
             <div class="status-card">
@@ -50,22 +50,41 @@
           </div>
         </div>
 
-        <!-- AIロボットコグニティブステータス -->
+        <!-- 家族のサバイバルステータス -->
         <div class="hud-panel">
-          <div class="hud-panel-title">AI COGNITIVE MONITOR (AI認知モニター)</div>
+          <div class="hud-panel-title">FAMILY INTEGRITY (家族のステータス)</div>
           <div class="status-grid">
-            <div class="status-card ai-status-card">
-              <div class="status-label">USER TRUST LEVEL (信頼度)</div>
-              <div class="status-value"><span id="ai-confidence-val">80%</span></div>
+            <div class="status-card">
+              <div class="status-label">FAMILY HP</div>
+              <div class="status-value"><span id="family-hp-val">100</span> / 100</div>
               <div class="progress-bar-bg">
-                <div id="ai-confidence-fill" class="progress-bar-fill fill-cyan" style="width: 80%;"></div>
+                <div id="family-hp-fill" class="progress-bar-fill fill-green" style="width: 100%;"></div>
               </div>
             </div>
-            <div class="status-card ai-status-card">
-              <div class="status-label">HALLUCINATION RISK (ハルシネーション危険度)</div>
-              <div class="status-value"><span id="ai-malfunction-val">20%</span></div>
+            <div class="status-card">
+              <div class="status-label">PANIC LEVEL</div>
+              <div class="status-value"><span id="family-panic-val">0%</span></div>
               <div class="progress-bar-bg">
-                <div id="ai-malfunction-fill" class="progress-bar-fill fill-red" style="width: 20%;"></div>
+                <div id="family-panic-fill" class="progress-bar-fill fill-green" style="width: 0%;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- AIロボットコグニティブステータス（データ数値を隠蔽し、精神波ノイズでブラックボックス化） -->
+        <div class="hud-panel">
+          <div class="hud-panel-title">AI SIGNAL & COGNITION (AI認知シグナル)</div>
+          <div class="status-grid">
+            <div class="status-card ai-status-card">
+              <div class="status-label">SIGNAL STATE (通信電波状況 / 精神波ノイズ)</div>
+              <div class="wave-container">
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
               </div>
             </div>
           </div>
@@ -81,11 +100,11 @@
           <!-- 認可決定ボタンパネル -->
           <div class="decision-controls">
             <div class="action-row">
-              <button id="btn-challenge" class="btn btn-cyan" disabled>問い詰める (再検証)</button>
+              <button id="btn-challenge" class="btn btn-cyan" disabled>問い詰める (再検証要求)</button>
             </div>
             <div class="action-row">
-              <button id="btn-authorize" class="btn btn-red" disabled>射撃認可 (FIRE)</button>
-              <button id="btn-deny" class="btn btn-green" disabled>却下 (HOLD)</button>
+              <button id="btn-authorize" class="btn btn-red" disabled>射撃認可 (FIRE AUTHORIZED)</button>
+              <button id="btn-deny" class="btn btn-green" disabled>却下 (HOLD FIRE)</button>
             </div>
           </div>
         </div>

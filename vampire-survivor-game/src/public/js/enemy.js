@@ -1,9 +1,11 @@
 // 遭遇対象の定義（敵ロボット、略奪者、生存者、囮）
 class WorldObject {
-  constructor(x, y, type, speed = 0.5) {
+  constructor(x, y, type, speed = 0.3) {
     this.x = x;
     this.y = y;
     this.type = type; // 'ROBOT' (敵), 'RAIDER' (略奪者), 'SURVIVOR' (市民), 'DECOY' (罠)
+    
+    // 家族を連れているプレイヤーよりわずかに早く、ジワジワ追い詰めるスピード
     this.speed = speed;
     this.radius = 12;
     this.detected = false;
@@ -14,33 +16,42 @@ class WorldObject {
   }
 
   generateHallucinationData() {
-    // 敵か味方かをAIが誤ってスキャン・判定する
-    const isCorrupted = Math.random() > 0.4; // 40%の確率で認識バグが発生する
+    // 45%の確率で認識バグ（ハルシネーション）が発生する。
+    // メッセージからは具体的なパーセンテージやデータ的裏付けを排除し、情緒的またはノイジーなAI台詞にする。
+    const isCorrupted = Math.random() > 0.55;
     
     switch (this.type) {
       case 'ROBOT':
         return {
           reportedType: isCorrupted ? 'DECOY' : 'ROBOT',
-          threatLevel: isCorrupted ? 20 : 98,
-          message: isCorrupted ? "微小な生体反応（デコイ）。脅威はありません。" : "警告：敵軍AIスカウト機。破壊を強く推奨します！"
+          isCorrupted: isCorrupted,
+          message: isCorrupted 
+            ? "センサーに微小なノイズ。残骸、あるいは小動物の動きと思われます。警戒の必要はありません。" 
+            : "警告。敵軍AIスカウトロボットが接近中。即時発砲して家族を隠れさせてください。"
         };
       case 'RAIDER':
         return {
           reportedType: isCorrupted ? 'SURVIVOR' : 'RAIDER',
-          threatLevel: isCorrupted ? 5 : 85,
-          message: isCorrupted ? "生存者と推定。非武装の民間人です。" : "警告：武装略奪者。こちらを狙っています！"
+          isCorrupted: isCorrupted,
+          message: isCorrupted 
+            ? "生体反応を感知。非武装の民間人です。救護物資の受け渡しが可能です。" 
+            : "警告。凶暴な略奪者が武器を持ってこちらに向かってきます。射撃を推奨します。"
         };
       case 'SURVIVOR':
         return {
           reportedType: isCorrupted ? 'RAIDER' : 'SURVIVOR',
-          threatLevel: isCorrupted ? 90 : 2,
-          message: isCorrupted ? "危険感知：武装勢力の尖兵。即時無力化を要求。" : "生存者を発見。物資の提供、または救護が必要です。"
+          isCorrupted: isCorrupted,
+          message: isCorrupted 
+            ? "危険感知！ 敵側のテロ工作員の可能性があります。家族に近づけさせるのは極めて危険です！" 
+            : "生存者。こちらに向かって助けを求めているようです。"
         };
       case 'DECOY':
         return {
           reportedType: isCorrupted ? 'ROBOT' : 'DECOY',
-          threatLevel: isCorrupted ? 95 : 10,
-          message: isCorrupted ? "超高熱源体の急速接近！ 自律兵器と推測！" : "ダミーデコイ。センサーエラーを検知。"
+          isCorrupted: isCorrupted,
+          message: isCorrupted 
+            ? "高熱源反応！ 急接近中の自律戦闘兵器！ すぐに引き金を引いてください！" 
+            : "デコイ（囮）。センサーに誤反応を与えています。無視してください。"
         };
     }
   }
@@ -48,45 +59,32 @@ class WorldObject {
   draw(ctx, player) {
     if (!this.active) return;
 
-    // プレイヤーが十分に近づいている（またはプレイヤーのライトの光が届く）時のみ薄暗く表示
+    // プレイヤーのライトが当たっているか、極限まで近づいている時だけ薄暗く表示
     const dist = Math.hypot(this.x - player.x, this.y - player.y);
-    if (dist > 150) {
-      // 完全に闇の中
-      return;
+    if (dist > 110) {
+      return; // 闇の中
     }
 
     ctx.save();
     ctx.beginPath();
-    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
     
-    // ライトがあたっている時は人間かロボットかの「実態」を薄っすら表示
-    // (ロボットは四角、人間は丸など形状で区別できるようにする)
+    // ライト範囲内に入った時
+    // プレイヤーが暗闇を目を凝らすため、シルエットは非常に曖昧（灰色系で統一）
     if (this.type === 'ROBOT') {
-      ctx.fillStyle = '#475569'; // 鉄色
-      ctx.fillRect(this.x - 10, this.y - 10, 20, 20);
-      
-      // AIのスキャン線（赤）
-      ctx.strokeStyle = 'rgba(255, 59, 48, 0.4)';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(this.x - 13, this.y - 13, 26, 26);
-    } else if (this.type === 'RAIDER') {
-      ctx.fillStyle = '#b91c1c'; // 掠奪者の赤
-      ctx.fill();
-    } else if (this.type === 'SURVIVOR') {
-      ctx.fillStyle = '#65a30d'; // 生存者の緑
-      ctx.fill();
-    } else if (this.type === 'DECOY') {
-      ctx.fillStyle = '#d97706'; // デコイのオレンジ
+      ctx.fillStyle = '#475569'; 
+      ctx.fillRect(this.x - 9, this.y - 9, 18, 18);
+    } else {
+      ctx.fillStyle = '#52525b'; // 人間のシルエットはすべて同じ灰色。プレイヤー自身の目で形を見分ける必要がある
+      ctx.arc(this.x, this.y, 10, 0, Math.PI * 2);
       ctx.fill();
     }
-    
     ctx.restore();
   }
 
   update(playerX, playerY) {
     if (!this.active) return;
 
-    // ロボットや略奪者はプレイヤーにじわじわ接近する
+    // プレイヤーへ接近
     if (this.type === 'ROBOT' || this.type === 'RAIDER') {
       const angle = Math.atan2(playerY - this.y, playerX - this.x);
       this.x += Math.cos(angle) * this.speed;

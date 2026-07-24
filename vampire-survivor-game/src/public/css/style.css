@@ -150,6 +150,35 @@ canvas {
   border-color: rgba(0, 240, 255, 0.2);
 }
 
+/* 精神波/ノイズのビジュアル装飾 */
+.wave-container {
+  display: flex;
+  align-items: flex-end;
+  height: 25px;
+  gap: 3px;
+  margin-top: 8px;
+}
+
+.wave-bar {
+  flex: 1;
+  background-color: var(--accent-cyan);
+  box-shadow: 0 0 6px var(--glow-cyan);
+  animation: signal-bounce 0.8s infinite ease-in-out;
+}
+
+@keyframes signal-bounce {
+  0%, 100% { height: 10%; }
+  50% { height: 80%; }
+}
+
+/* 波形のアニメーションラグを設定 */
+.wave-bar:nth-child(2) { animation-delay: 0.1s; }
+.wave-bar:nth-child(3) { animation-delay: 0.3s; }
+.wave-bar:nth-child(4) { animation-delay: 0.2s; }
+.wave-bar:nth-child(5) { animation-delay: 0.4s; }
+.wave-bar:nth-child(6) { animation-delay: 0.15s; }
+.wave-bar:nth-child(7) { animation-delay: 0.35s; }
+
 .progress-bar-bg {
   width: 100%;
   height: 6px;
@@ -178,6 +207,11 @@ canvas {
 .fill-green {
   background-color: var(--accent-green);
   box-shadow: 0 0 8px var(--glow-green);
+}
+
+.fill-orange {
+  background-color: var(--accent-orange);
+  box-shadow: 0 0 8px rgba(255, 149, 0, 0.4);
 }
 
 /* ロボット対話モジュール */
