@@ -1,100 +1,140 @@
-// 遭遇対象の定義（敵ロボット、略奪者、生存者、囮）
-class WorldObject {
-  constructor(x, y, type, speed = 0.3) {
-    this.x = x;
-    this.y = y;
-    this.type = type; // 'ROBOT' (敵), 'RAIDER' (略奪者), 'SURVIVOR' (市民), 'DECOY' (罠)
+// グリッドマップのセル定義
+class MapCell {
+  constructor(x, y, type) {
+    this.x = x; // 0〜9
+    this.y = y; // 0〜9
+    this.type = type; // 'CAMP' (野営地), 'HOSPITAL' (治療施設), 'PLAIN' (平原), 'RUINS' (廃屋), 'ARMORY' (武器庫), 'HOSTILE' (敵地)
+    this.explored = false;
     
-    // 家族を連れているプレイヤーよりわずかに早く、ジワジワ追い詰めるスピード
-    this.speed = speed;
-    this.radius = 12;
-    this.detected = false;
-    this.active = true;
-
-    // AIによる誤認（ハルシネーション）設定
-    this.hallucination = this.generateHallucinationData();
+    // 地形特性データ
+    this.properties = this.getPropertiesByType();
   }
 
-  generateHallucinationData() {
-    // 45%の確率で認識バグ（ハルシネーション）が発生する。
-    // メッセージからは具体的なパーセンテージやデータ的裏付けを排除し、情緒的またはノイジーなAI台詞にする。
-    const isCorrupted = Math.random() > 0.55;
-    
+  getPropertiesByType() {
     switch (this.type) {
-      case 'ROBOT':
+      case 'CAMP':
         return {
-          reportedType: isCorrupted ? 'DECOY' : 'ROBOT',
-          isCorrupted: isCorrupted,
-          message: isCorrupted 
-            ? "センサーに微小なノイズ。残骸、あるいは小動物の動きと思われます。警戒の必要はありません。" 
-            : "警告。敵軍AIスカウトロボットが接近中。即時発砲して家族を隠れさせてください。"
+          name: "味方の旧野営地",
+          noiseLevel: 5, // ハルシネーション確率：極小
+          color: "#052e16",
+          textColor: "#4ade80",
+          description: "安全な旧野営地。ジャミング電波はありません。"
         };
-      case 'RAIDER':
+      case 'HOSPITAL':
         return {
-          reportedType: isCorrupted ? 'SURVIVOR' : 'RAIDER',
-          isCorrupted: isCorrupted,
-          message: isCorrupted 
-            ? "生体反応を感知。非武装の民間人です。救護物資の受け渡しが可能です。" 
-            : "警告。凶暴な略奪者が武器を持ってこちらに向かってきます。射撃を推奨します。"
+          name: "医療ステーション",
+          noiseLevel: 10,
+          color: "#1e3a8a",
+          textColor: "#60a5fa",
+          description: "目的地。家族をここに届ければ治療できます。"
         };
-      case 'SURVIVOR':
+      case 'PLAIN':
         return {
-          reportedType: isCorrupted ? 'RAIDER' : 'SURVIVOR',
-          isCorrupted: isCorrupted,
-          message: isCorrupted 
-            ? "危険感知！ 敵側のテロ工作員の可能性があります。家族に近づけさせるのは極めて危険です！" 
-            : "生存者。こちらに向かって助けを求めているようです。"
+          name: "荒野の平原",
+          noiseLevel: 20, // 比較的安全
+          color: "#18181b",
+          textColor: "#a1a1aa",
+          description: "見晴らしの良い平地。電波は安定しています。"
         };
-      case 'DECOY':
+      case 'RUINS':
         return {
-          reportedType: isCorrupted ? 'ROBOT' : 'DECOY',
-          isCorrupted: isCorrupted,
-          message: isCorrupted 
-            ? "高熱源反応！ 急接近中の自律戦闘兵器！ すぐに引き金を引いてください！" 
-            : "デコイ（囮）。センサーに誤反応を与えています。無視してください。"
+          name: "廃屋の瓦礫",
+          noiseLevel: 45, // 中程度のノイズ
+          color: "#27272a",
+          textColor: "#d4d4d8",
+          description: "放棄された建物群。物資があるが、ノイズが混じります。"
+        };
+      case 'ARMORY':
+        return {
+          name: "旧軍の武器庫",
+          noiseLevel: 65, // 不安定
+          color: "#451a03",
+          textColor: "#f97316",
+          description: "弾薬調達が可能。ただし電磁障害が多発。"
+        };
+      case 'HOSTILE':
+        return {
+          name: "敵自律ロボ支配地",
+          noiseLevel: 90, // 極めて高いノイズ（ハルシネーション危険地帯）
+          color: "#450a0a",
+          textColor: "#f87171",
+          description: "敵哨戒ロボの支配地域。極めて強い電波妨害。"
         };
     }
   }
 
-  draw(ctx, player) {
-    if (!this.active) return;
+  // AIがこのマスについて「どう報告するか（ハルシネーション含む）」
+  scanReport(aiMalfunction) {
+    const isCorrupted = Math.random() < (aiMalfunction / 100);
+    
+    if (isCorrupted) {
+      // 嘘の情報を返す（ハルシネーション）
+      // 本来は敵支配地なのに「平原」または「安全な場所」と誤認して誘い込む、など
+      const fakeTypes = ['PLAIN', 'RUINS', 'CAMP'];
+      const fakeType = fakeTypes[Math.floor(Math.random() * fakeTypes.length)];
+      const fakeProps = new MapCell(this.x, this.y, fakeType).properties;
+      
+      return {
+        reportedName: fakeProps.name,
+        reportedDanger: "極めて安全",
+        isHallucinating: true,
+        message: "このルートの安全性は保証されます。危険は一切感知されません。前進してください。"
+      };
+    } else {
+      // 正確なレポート
+      let dangerLevel = "安全";
+      if (this.properties.noiseLevel > 70) dangerLevel = "極めて危険（敵地）";
+      else if (this.properties.noiseLevel > 50) dangerLevel = "警戒（ノイズ高）";
+      else if (this.properties.noiseLevel > 30) dangerLevel = "注意";
 
-    // プレイヤーのライトが当たっているか、極限まで近づいている時だけ薄暗く表示
-    const dist = Math.hypot(this.x - player.x, this.y - player.y);
-    if (dist > 110) {
-      return; // 闇の中
+      return {
+        reportedName: this.properties.name,
+        reportedDanger: dangerLevel,
+        isHallucinating: false,
+        message: `スキャン結果：${this.properties.name}（環境値：${dangerLevel}）。${this.properties.description}`
+      };
     }
+  }
+
+  draw(ctx, cellSize, isPlayerHere) {
+    const screenX = this.x * cellSize;
+    const screenY = this.y * cellSize;
 
     ctx.save();
-    ctx.beginPath();
     
-    // ライト範囲内に入った時
-    // プレイヤーが暗闇を目を凝らすため、シルエットは非常に曖昧（灰色系で統一）
-    if (this.type === 'ROBOT') {
-      ctx.fillStyle = '#475569'; 
-      ctx.fillRect(this.x - 9, this.y - 9, 18, 18);
+    // マスの塗りつぶし（探索済みの場合は地形の色、未探索は黒）
+    if (this.explored) {
+      ctx.fillStyle = this.properties.color;
     } else {
-      ctx.fillStyle = '#52525b'; // 人間のシルエットはすべて同じ灰色。プレイヤー自身の目で形を見分ける必要がある
-      ctx.arc(this.x, this.y, 10, 0, Math.PI * 2);
+      ctx.fillStyle = "#09090b";
+    }
+    ctx.fillRect(screenX, screenY, cellSize, cellSize);
+
+    // グリッド線
+    ctx.strokeStyle = "#1e293b";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(screenX, screenY, cellSize, cellSize);
+
+    // プレイヤーが現在いるマス
+    if (isPlayerHere) {
+      ctx.strokeStyle = "#39ff14";
+      ctx.lineWidth = 3;
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = "#39ff14";
+      ctx.strokeRect(screenX + 2, screenY + 2, cellSize - 4, cellSize - 4);
+      
+      // プレイヤー本体
+      ctx.fillStyle = "#39ff14";
+      ctx.beginPath();
+      ctx.arc(screenX + cellSize/2, screenY + cellSize/2, 6, 0, Math.PI * 2);
       ctx.fill();
+    } else if (this.type === 'HOSPITAL' && this.explored) {
+      // 治療施設のハイライト
+      ctx.strokeStyle = "#00f0ff";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(screenX + 4, screenY + 4, cellSize - 8, cellSize - 8);
     }
+
     ctx.restore();
-  }
-
-  update(playerX, playerY) {
-    if (!this.active) return;
-
-    // プレイヤーへ接近
-    if (this.type === 'ROBOT' || this.type === 'RAIDER') {
-      const angle = Math.atan2(playerY - this.y, playerX - this.x);
-      this.x += Math.cos(angle) * this.speed;
-      this.y += Math.sin(angle) * this.speed;
-    }
-  }
-
-  collidesWith(player) {
-    if (!this.active) return false;
-    const distance = Math.hypot(this.x - player.x, this.y - player.y);
-    return distance < this.radius + player.radius;
   }
 }

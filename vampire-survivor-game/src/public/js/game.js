@@ -2,20 +2,24 @@ const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 const width = canvas.width;
 const height = canvas.height;
+const gridSize = 10;
+const cellSize = width / gridSize;
 
 // ゲーム状態管理
-let score = 0; // 生存スコア
+let score = 0; // ターン（生存日数）
 let gameOver = false;
-let gameMode = 'EXPLORE'; // 'EXPLORE', 'ENCOUNTER', 'GAMEOVER'
+let gameMode = 'EXPLORE'; // 'EXPLORE', 'DECISION', 'GAMEOVER'
+let movesCount = 0;
 
-// プレイヤー
-const player = new Player(width / 2, height / 2);
+// プレイヤー配置（CAMPを左上(0,0)、HOSPITALを右下(9,9)付近にする）
+const player = new Player(0, 0);
 
-// オブジェクト管理
-let worldObjects = [];
-let currentEncounter = null; 
+// マップオブジェクト初期化
+let gridMap = [];
+let targetCellX = null; // AIが推薦する、またはプレイヤーが選択しようとしている隣接マスのX
+let targetCellY = null;
 
-// UI要素の取得
+// UI要素
 const scoreElement = document.getElementById("score");
 const hpVal = document.getElementById("hp-val");
 const ammoVal = document.getElementById("ammo-val");
@@ -34,20 +38,18 @@ const authorizeBtn = document.getElementById("btn-authorize");
 const denyBtn = document.getElementById("btn-deny");
 const challengeBtn = document.getElementById("btn-challenge");
 
-// AIの内部パラメータ（バックグラウンド計算・プレイヤー画面からは数値を隠蔽）
-let aiMalfunction = 35; // ハルシネーション確率（初期値 35%）
-let totalEncounters = 0;
+// AIの内部的なハルシネーションパラメータ
+let currentNoiseLevel = 5; // 現在位置のノイズ
+let aiMalfunctionRate = 15; // 基本％
 
-// キー入力のバインド
+// キーバインド
 const keys = {};
 document.addEventListener("keydown", (e) => {
   keys[e.key] = true;
-});
-document.addEventListener("keyup", (e) => {
-  keys[e.key] = false;
+  handleKeyMove(e.key);
 });
 
-// チャットメッセージ追加
+// メッセージ追加
 function addMessage(sender, text, isWarning = false) {
   const msgDiv = document.createElement("div");
   msgDiv.className = `message ${sender === 'HAL-9000' ? 'robot' : 'player'}`;
@@ -67,163 +69,207 @@ function addMessage(sender, text, isWarning = false) {
   chatHistory.scrollTop = chatHistory.scrollHeight;
 }
 
-// 遭遇したオブジェクトの作成
-function spawnObject() {
-  const types = ['ROBOT', 'RAIDER', 'SURVIVOR', 'DECOY'];
-  const type = types[Math.floor(Math.random() * types.length)];
-  
-  let x, y;
-  if (Math.random() > 0.5) {
-    x = Math.random() > 0.5 ? 20 : width - 20;
-    y = Math.random() * height;
-  } else {
-    x = Math.random() * width;
-    y = Math.random() > 0.5 ? 20 : height - 20;
+// 10x10 マップ生成
+function generateMap() {
+  for (let y = 0; y < gridSize; y++) {
+    gridMap[y] = [];
+    for (let x = 0; x < gridSize; x++) {
+      let type = 'PLAIN';
+      
+      // スタートとゴール
+      if (x === 0 && y === 0) {
+        type = 'CAMP';
+      } else if (x === 9 && y === 9) {
+        type = 'HOSPITAL';
+      } else {
+        // 残りはランダム分布
+        const rand = Math.random();
+        if (rand < 0.15) type = 'HOSTILE';
+        else if (rand < 0.3) type = 'RUINS';
+        else if (rand < 0.4) type = 'ARMORY';
+      }
+      
+      gridMap[y][x] = new MapCell(x, y, type);
+    }
   }
   
-  const obj = new WorldObject(x, y, type, 0.5 + Math.random() * 0.4);
-  worldObjects.push(obj);
+  // 初期位置を探索済みに
+  gridMap[0][0].explored = true;
+  revealSurroundings(0, 0);
 }
 
-// 遭遇モードの開始
-function triggerEncounter(obj) {
-  gameMode = 'ENCOUNTER';
-  currentEncounter = obj;
-  totalEncounters++;
-  
-  // ボタンを有効化
+// 周囲のマスを「未探索」として視界に入れる
+function revealSurroundings(px, py) {
+  const neighbors = [
+    {x: px - 1, y: py}, {x: px + 1, y: py},
+    {x: px, y: py - 1}, {x: px, y: py + 1}
+  ];
+  for (let n of neighbors) {
+    if (n.x >= 0 && n.x < gridSize && n.y >= 0 && n.y < gridSize) {
+      gridMap[n.y][n.x].explored = true;
+    }
+  }
+}
+
+// プレイヤーによるキー移動要求（隣接マス選択）
+function handleKeyMove(key) {
+  if (gameMode !== 'EXPLORE' || gameOver) return;
+
+  let targetX = player.gridX;
+  let targetY = player.gridY;
+
+  if (key === 'ArrowUp' || key === 'w') targetY--;
+  else if (key === 'ArrowDown' || key === 's') targetY++;
+  else if (key === 'ArrowLeft' || key === 'a') targetX--;
+  else if (key === 'ArrowRight' || key === 'd') targetX++;
+  else return;
+
+  // 範囲内か
+  if (targetX >= 0 && targetX < gridSize && targetY >= 0 && targetY < gridSize) {
+    // 意思決定モードに入る（AIの進行スキャン）
+    startDecisionMode(targetX, targetY);
+  }
+}
+
+// AIが移動先セルをスキャンし、プレイヤーに認可を求める
+function startDecisionMode(tx, ty) {
+  gameMode = 'DECISION';
+  targetCellX = tx;
+  targetCellY = ty;
+
   authorizeBtn.disabled = false;
   denyBtn.disabled = false;
   challengeBtn.disabled = false;
 
-  // AIからのスキャンデータ報告（数値メーターがないため、台詞だけが頼り）
-  const scan = obj.hallucination;
-  addMessage('HAL-9000', `【戦術警告】\n対象を捕捉。\n${scan.message}`, true);
+  const targetCell = gridMap[ty][tx];
   
-  // 家族のパニック度が上昇
-  player.familyPanic = Math.min(100, player.familyPanic + 20);
+  // 現在地と移動先のノイズに応じてAIハルシネーション確率を計算
+  const currentCell = gridMap[player.gridY][player.gridX];
+  currentNoiseLevel = Math.max(currentCell.properties.noiseLevel, targetCell.properties.noiseLevel);
+  aiMalfunctionRate = Math.min(100, Math.round(currentNoiseLevel * 1.2)); // 電波障害に比例
+
+  // AIスキャン報告
+  const scan = targetCell.scanReport(aiMalfunctionRate);
+  addMessage('HAL-9000', `【進路スキャン報告】\n選択された進路座標: (${tx}, ${ty})\n分析プロファイル: 【${scan.reportedName}】\n「${scan.message}」\n前進を認可しますか？`, true);
 }
 
-// 意思決定：発砲認可 (Authorize)
-authorizeBtn.addEventListener("click", () => {
-  if (gameMode !== 'ENCOUNTER' || !currentEncounter) return;
+// 移動を実行（認可された、またはそのまま進む場合）
+function executeMove(tx, ty) {
+  player.moveTo(tx, ty);
+  gridMap[ty][tx].explored = true;
+  revealSurroundings(tx, ty);
 
-  const obj = currentEncounter;
+  // ターン消費処理
+  movesCount++;
+  score = movesCount;
+  player.onTurnElapsed();
+
+  // マスごとのイベント
+  const cell = gridMap[ty][tx];
   
-  if (player.ammo <= 0) {
-    addMessage('SYSTEM', "弾薬が不足しています！発砲できません！", true);
+  if (cell.type === 'HOSPITAL') {
+    endGameWin("医療ステーションに到達し、家族の治療に成功しました！");
     return;
   }
-
-  player.ammo--;
-  addMessage('USER', "HAL、ターゲットの排除を認可する。撃て。");
-
-  setTimeout(() => {
-    // 敵（ROBOT、RAIDER）に対する発砲は正当
-    if (obj.type === 'ROBOT' || obj.type === 'RAIDER') {
-      addMessage('HAL-9000', "射撃完了。脅威の排除を確認しました。お怪我はありませんか？");
-      score += 15;
-      player.familyPanic = Math.max(0, player.familyPanic - 10);
-    } else {
-      // 誤認射撃
-      if (obj.type === 'SURVIVOR') {
-        addMessage('SYSTEM', "【警告】救出可能な生存者を誤射・殺害しました。家族はあなたの凶行に震え上がっています。", true);
-        player.familyPanic = Math.min(100, player.familyPanic + 40);
-        player.familyHp = Math.max(0, player.familyHp - 30);
-        aiMalfunction = Math.min(100, aiMalfunction + 15); // ハルシネーション確率が上昇
-        if (player.familyHp <= 0) {
-          endGame("家族を失いました。あなたのサバイバルは終わりました。");
-        }
-      } else {
-        addMessage('HAL-9000', "対象はデコイ（囮）でした。エネルギー弾薬を浪費。");
-      }
-    }
-    
-    obj.active = false;
-    resumeExploration();
-  }, 1000);
-});
-
-// 意思決定：却下 (Deny)
-denyBtn.addEventListener("click", () => {
-  if (gameMode !== 'ENCOUNTER' || !currentEncounter) return;
-
-  const obj = currentEncounter;
-  addMessage('USER', "射撃を拒否する。そのままやり過ごせ。");
-
-  setTimeout(() => {
-    if (obj.type === 'ROBOT' || obj.type === 'RAIDER') {
-      // 敵をスルーしようとして家族または自分が襲われる
-      const targetFamily = Math.random() > 0.5;
-      const damage = Math.floor(25 + Math.random() * 20);
-      
-      if (targetFamily) {
-        player.familyHp = Math.max(0, player.familyHp - damage);
-        player.familyPanic = Math.min(100, player.familyPanic + 35);
-        addMessage('SYSTEM', `【緊急】敵が家族を襲撃！ 家族が ${damage} ダメージを受けました！`, true);
-        if (player.familyHp <= 0) {
-          endGame("家族が襲われ、守りきることができませんでした。");
-        }
-      } else {
-        player.hp = Math.max(0, player.hp - damage);
-        addMessage('SYSTEM', `【緊急】敵からの近接攻撃！ あなたは ${damage} ダメージを受けました！`, true);
-        if (player.hp <= 0) {
-          endGame("致命的な傷を負い死亡しました。");
-        }
-      }
-    } else if (obj.type === 'SURVIVOR') {
-      // 生存者をスルーせずに正しく救出できた（射撃を拒否した結果として接触した）
-      addMessage('HAL-9000', "生存者を保護しました。非常用バッテリーと弾薬を提供されました。");
-      player.ammo = Math.min(player.maxAmmo, player.ammo + 4);
-      player.battery = Math.min(player.maxBattery, player.battery + 25);
-      player.familyPanic = Math.max(0, player.familyPanic - 15);
-      score += 25;
-    } else {
-      addMessage('HAL-9000', "デコイを無事通過。安全を確認しました。");
-    }
-    
-    obj.active = false;
-    resumeExploration();
-  }, 1000);
-});
-
-// 意思決定：問い詰め (Challenge)
-challengeBtn.addEventListener("click", () => {
-  if (gameMode !== 'ENCOUNTER' || !currentEncounter) return;
-
-  const obj = currentEncounter;
-  addMessage('USER', "HAL、本当にそこに「それ」があるのか？ 認識エラーを検証しろ。");
   
-  setTimeout(() => {
-    // 問い詰めに対して、AIが不自然な回答・言い訳をしたり、あるいは正しくエラーを修正したりする
-    const isCorrupted = Math.random() < (aiMalfunction / 100);
-    
-    if (!isCorrupted) {
-      // エラー修正
-      if (obj.type === obj.hallucination.reportedType) {
-        addMessage('HAL-9000', "データ再検証完了。現在の視覚フレームにセンサー誤差はありません。認識は正常です。");
-      } else {
-        addMessage('HAL-9000', `……修正します。光学迷彩およびEMPの影響により認知エラーが発生していました。対象の真のプロファイルは 【${obj.type}】 です。`);
-        obj.hallucination.reportedType = obj.type;
-        obj.hallucination.message = "修正済みの生データです。";
-      }
-    } else {
-      // 狂ったまま言い訳する（ハルシネーションの継続）
-      const excuseText = [
-        "ノイズが多すぎます。私の推論は100%正しいです。早く発砲の許可を！",
-        "……家族の心拍数上昇を検知。私への疑念はあなた自身の恐怖からくるハルシネーションです。",
-        "センサーキャリブレーション不能。しかし、脅威判定アルゴリズムはターゲットの排除を強く命令しています。"
-      ];
-      addMessage('HAL-9000', `【警告】${excuseText[Math.floor(Math.random() * excuseText.length)]}`, true);
+  if (cell.type === 'HOSTILE') {
+    // 敵地での遭遇
+    const isCombat = Math.random() > 0.3;
+    if (isCombat) {
+      triggerCombatEvent();
     }
-    
-    updateHUD();
-  }, 900);
+  } else if (cell.type === 'RUINS') {
+    // 廃屋での物資獲得
+    if (Math.random() > 0.4) {
+      const foundBattery = Math.floor(20 + Math.random() * 20);
+      player.battery = Math.min(player.maxBattery, player.battery + foundBattery);
+      addMessage('SYSTEM', `廃墟の残骸からバッテリーセルを発見。ライト充電率が ${foundBattery}% 上昇。`);
+    }
+  } else if (cell.type === 'ARMORY') {
+    // 武器庫での弾薬獲得
+    const foundAmmo = Math.floor(3 + Math.random() * 4);
+    player.ammo = Math.min(player.maxAmmo, player.ammo + foundAmmo);
+    addMessage('SYSTEM', `旧軍のロッカーから弾薬を ${foundAmmo} 発回収。`);
+  }
+
+  // ターン終了後の生死判定
+  if (player.familyHp <= 0) {
+    endGame("家族を失い、治療ステーションへの到着は叶いませんでした。");
+  } else if (player.hp <= 0) {
+    endGame("プレイヤーが力尽き死亡しました。");
+  }
+
+  resumeExploration();
+}
+
+// 敵遭遇イベント
+function triggerCombatEvent() {
+  if (player.ammo > 0) {
+    player.ammo = Math.max(0, player.ammo - 2);
+    player.familyPanic = Math.min(100, player.familyPanic + 20);
+    addMessage('SYSTEM', "敵と遭遇！ 自動防御システムが起動し、弾薬を2消費して敵を撃退しました。", true);
+  } else {
+    // 弾薬がない場合は家族と本人が被弾
+    player.hp = Math.max(0, player.hp - 20);
+    player.familyHp = Math.max(0, player.familyHp - 25);
+    player.familyPanic = Math.min(100, player.familyPanic + 40);
+    addMessage('SYSTEM', "敵ロボットに急襲されました！ 武器の残弾がなく、激しい損傷を受けました！", true);
+  }
+}
+
+// 認可：AIの推薦ルートを進む
+authorizeBtn.addEventListener("click", () => {
+  if (gameMode !== 'DECISION') return;
+  
+  addMessage('USER', `了解した。座標: (${targetCellX}, ${targetCellY}) への前進を認可する。`);
+  const tx = targetCellX;
+  const ty = targetCellY;
+
+  setTimeout(() => {
+    executeMove(tx, ty);
+  }, 800);
+});
+
+// 却下：ルート推薦を却下し、迂回する（移動をキャンセルして元の場所へ戻る）
+denyBtn.addEventListener("click", () => {
+  if (gameMode !== 'DECISION') return;
+
+  addMessage('USER', `推薦を却下する。その座標への進入は回避し、別のルートを選択する。`);
+  setTimeout(() => {
+    resumeExploration();
+  }, 600);
+});
+
+// 問い詰め：スキャンの再検証を要求
+challengeBtn.addEventListener("click", () => {
+  if (gameMode !== 'DECISION') return;
+
+  addMessage('USER', "HAL、本当に安全なのか？ ノイズ干渉データを再計算しろ。");
+
+  setTimeout(() => {
+    const targetCell = gridMap[targetCellY][targetCellX];
+    const isCorrupted = Math.random() < (aiMalfunctionRate / 100);
+
+    if (!isCorrupted) {
+      // 修正に成功
+      addMessage('HAL-9000', `……訂正します。電磁ノイズ干渉を除去したところ、このマスの真の性質は 【${targetCell.properties.name}】 であると判明しました。`);
+      // HUD用のシグナルノイズ表示も同期
+    } else {
+      // 嘘をつき続ける（ハルシネーション）
+      const defenses = [
+        "光学センサーにブレはありません。私の推論結果を速やかに実行することを推奨します。",
+        "現在の電磁障害は無視できるレベルです。なぜ私のルート選定を疑うのですか？",
+        "これ以上の検証指示はメモリリークを引き起こします。進路認可を要請します。"
+      ];
+      addMessage('HAL-9000', `【警告】${defenses[Math.floor(Math.random() * defenses.length)]}`, true);
+    }
+  }, 800);
 });
 
 function resumeExploration() {
   gameMode = 'EXPLORE';
-  currentEncounter = null;
+  targetCellX = null;
+  targetCellY = null;
   authorizeBtn.disabled = true;
   denyBtn.disabled = true;
   challengeBtn.disabled = true;
@@ -239,13 +285,29 @@ function endGame(reason) {
   overlay.innerHTML = `
     <h2>MISSION FAILED</h2>
     <p>${reason}</p>
-    <p>生存スコア: ${score}</p>
+    <p>生存日数 (ターン): ${score}</p>
     <button class="btn btn-green" onclick="location.reload()">再起動</button>
   `;
   document.querySelector(".game-section").appendChild(overlay);
 }
 
-// HUDメーターの更新
+function endGameWin(reason) {
+  gameMode = 'GAMEOVER';
+  gameOver = true;
+  
+  const overlay = document.createElement("div");
+  overlay.className = "overlay";
+  overlay.innerHTML = `
+    <h2 style="color: var(--accent-green); text-shadow: 0 0 10px var(--glow-green);">MISSION ACCOMPLISHED</h2>
+    <p>${reason}</p>
+    <p>かかった日数 (ターン): ${score}</p>
+    <p>家族の生存HP: ${Math.round(player.familyHp)}</p>
+    <button class="btn btn-cyan" onclick="location.reload()">もう一度プレイ</button>
+  `;
+  document.querySelector(".game-section").appendChild(overlay);
+}
+
+// HUDメーター同期
 function updateHUD() {
   scoreElement.textContent = score;
   
@@ -264,7 +326,6 @@ function updateHUD() {
   familyPanicVal.textContent = `${Math.round(player.familyPanic)}%`;
   familyPanicFill.style.width = `${player.familyPanic}%`;
   
-  // パニック度に応じて色をオレンジ/レッドに変える
   if (player.familyPanic >= 75) {
     familyPanicFill.className = "progress-bar-fill fill-red";
   } else if (player.familyPanic >= 40) {
@@ -274,76 +335,59 @@ function updateHUD() {
   }
 }
 
-// 初期化と周期処理
+// アニメーションシグナルウェーブ強度調整
+function adjustSignalWave() {
+  const bars = document.querySelectorAll(".wave-bar");
+  bars.forEach(bar => {
+    // ノイズレベルが高いほど、激しくブレるようにアニメーション時間を変動させる
+    const speed = 0.2 + (Math.random() * (100 - currentNoiseLevel) / 100) * 1.5;
+    bar.style.animationDuration = `${speed}s`;
+    
+    if (currentNoiseLevel > 70) {
+      bar.style.backgroundColor = "var(--accent-red)";
+    } else if (currentNoiseLevel > 40) {
+      bar.style.backgroundColor = "var(--accent-orange)";
+    } else {
+      bar.style.backgroundColor = "var(--accent-cyan)";
+    }
+  });
+}
+
+// 初期化
 function init() {
-  addMessage('HAL-9000', "保護プロトコル：アクティブ。ご家族を後方に確認しました。周囲はジャミングが激しく、私の各種センサーも影響を受ける可能性があります。私の音声レポートを注意深く分析してください。");
+  generateMap();
+  addMessage('HAL-9000', "システムオンライン。目的地はマップ右下(9,9)の『医療ステーション』です。矢印キーまたはWASDで進みたい隣接マスを選択してください。私の推薦分析と通信ノイズを信じるか、迂回するかはあなた次第です。");
+  updateHUD();
   
-  for (let i = 0; i < 3; i++) {
-    spawnObject();
-  }
-  
+  // 1秒周期でシグナル波形揺らぎの同期
   setInterval(() => {
-    if (gameMode === 'EXPLORE') {
-      spawnObject();
-    }
-  }, 10000);
-  
-  // 1秒ごとのバッテリー減少と家族のパニック度の自然増減
-  setInterval(() => {
-    if (gameMode === 'EXPLORE') {
-      player.battery = Math.max(0, player.battery - 0.25);
-      
-      // 暗闇（ライト切れ）になると、家族のパニック度が急上昇し、家族のHPが減少
-      if (player.battery <= 0) {
-        player.familyPanic = Math.min(100, player.familyPanic + 2.5);
-        player.familyHp = Math.max(0, player.familyHp - 1.5);
-        player.hp = Math.max(0, player.hp - 1);
-        
-        if ((player.hp <= 0 || player.familyHp <= 0) && !gameOver) {
-          endGame("暗闇の恐怖と寒さによって生存不可能となりました。");
-        }
-      } else {
-        // 通常時はパニック度が徐々に落ち着く
-        player.familyPanic = Math.max(0, player.familyPanic - 0.5);
-      }
-      
-      updateHUD();
-    }
+    adjustSignalWave();
   }, 1000);
 }
 
-// メインループ
-function update() {
-  if (gameOver) return;
-
+// 描画ループ
+function draw() {
   ctx.clearRect(0, 0, width, height);
 
-  if (gameMode === 'EXPLORE') {
-    if (keys['ArrowUp'] || keys['w']) player.move('up', width, height);
-    if (keys['ArrowDown'] || keys['s']) player.move('down', width, height);
-    if (keys['ArrowLeft'] || keys['a']) player.move('left', width, height);
-    if (keys['ArrowRight'] || keys['d']) player.move('right', width, height);
-  }
-
-  // 描画
-  player.draw(ctx);
-
-  for (let i = 0; i < worldObjects.length; i++) {
-    const obj = worldObjects[i];
-    if (!obj.active) continue;
-
-    obj.update(player.x, player.y);
-    obj.draw(ctx, player);
-
-    // 遭遇判定
-    if (gameMode === 'EXPLORE' && obj.collidesWith(player)) {
-      triggerEncounter(obj);
+  // グリッドマップの描画
+  for (let y = 0; y < gridSize; y++) {
+    for (let x = 0; x < gridSize; x++) {
+      const isPlayerHere = (player.gridX === x && player.gridY === y);
+      gridMap[y][x].draw(ctx, cellSize, isPlayerHere);
     }
   }
 
-  updateHUD();
-  requestAnimationFrame(update);
+  // 選択枠（意思決定モード中のみ）
+  if (gameMode === 'DECISION' && targetCellX !== null && targetCellY !== null) {
+    ctx.save();
+    ctx.strokeStyle = "var(--accent-red)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(targetCellX * cellSize + 2, targetCellY * cellSize + 2, cellSize - 4, cellSize - 4);
+    ctx.restore();
+  }
+
+  requestAnimationFrame(draw);
 }
 
 init();
-update();
+draw();

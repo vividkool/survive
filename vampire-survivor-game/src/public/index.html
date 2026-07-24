@@ -11,8 +11,8 @@
       <!-- 左側：ゲームフィールド画面 -->
       <section class="game-section">
         <header class="game-header">
-          <div class="system-title">SYS_STATUS: ACTIVE</div>
-          <div class="day-counter">SURVIVAL SCORE: <span id="score">0</span></div>
+          <div class="system-title">GRID SCANNER: ONLINE</div>
+          <div class="day-counter">ELAPSED TURNS (DAY): <span id="score">0</span></div>
         </header>
         
         <div class="canvas-container">
@@ -35,9 +35,9 @@
             </div>
             <div class="status-card">
               <div class="status-label">AMMO</div>
-              <div class="status-value"><span id="ammo-val">6</span> / 20</div>
+              <div class="status-value"><span id="ammo-val">8</span> / 20</div>
               <div class="progress-bar-bg">
-                <div id="ammo-fill" class="progress-bar-fill fill-cyan" style="width: 30%;"></div>
+                <div id="ammo-fill" class="progress-bar-fill fill-cyan" style="width: 40%;"></div>
               </div>
             </div>
             <div class="status-card">
@@ -52,20 +52,20 @@
 
         <!-- 家族のサバイバルステータス -->
         <div class="hud-panel">
-          <div class="hud-panel-title">FAMILY INTEGRITY (家族のステータス)</div>
+          <div class="hud-panel-title">FAMILY INTEGRITY (家族の被災・負傷状況)</div>
           <div class="status-grid">
             <div class="status-card">
-              <div class="status-label">FAMILY HP</div>
-              <div class="status-value"><span id="family-hp-val">100</span> / 100</div>
+              <div class="status-label">FAMILY HP (傷の状態)</div>
+              <div class="status-value"><span id="family-hp-val">90</span> / 100</div>
               <div class="progress-bar-bg">
-                <div id="family-hp-fill" class="progress-bar-fill fill-green" style="width: 100%;"></div>
+                <div id="family-hp-fill" class="progress-bar-fill fill-green" style="width: 90%;"></div>
               </div>
             </div>
             <div class="status-card">
-              <div class="status-label">PANIC LEVEL</div>
-              <div class="status-value"><span id="family-panic-val">0%</span></div>
+              <div class="status-label">PANIC LEVEL (精神疲弊)</div>
+              <div class="status-value"><span id="family-panic-val">10%</span></div>
               <div class="progress-bar-bg">
-                <div id="family-panic-fill" class="progress-bar-fill fill-green" style="width: 0%;"></div>
+                <div id="family-panic-fill" class="progress-bar-fill fill-green" style="width: 10%;"></div>
               </div>
             </div>
           </div>
@@ -103,8 +103,8 @@
               <button id="btn-challenge" class="btn btn-cyan" disabled>問い詰める (再検証要求)</button>
             </div>
             <div class="action-row">
-              <button id="btn-authorize" class="btn btn-red" disabled>射撃認可 (FIRE AUTHORIZED)</button>
-              <button id="btn-deny" class="btn btn-green" disabled>却下 (HOLD FIRE)</button>
+              <button id="btn-authorize" class="btn btn-red" disabled>前進を認可する (AUTHORIZE MOVE)</button>
+              <button id="btn-deny" class="btn btn-green" disabled>ルート却下・迂回 (HOLD & ROUTE BYPASS)</button>
             </div>
           </div>
         </div>
