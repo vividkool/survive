@@ -1,0 +1,6 @@
+# Git Ignore File
+node_modules/
+.DS_Store
+.env
+dist/
+build/

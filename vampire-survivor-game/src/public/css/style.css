@@ -1,0 +1,39 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background-color: #222;
+}
+
+.game-container {
+  position: relative;
+}
+
+canvas {
+  display: block;
+  background-color: #333;
+  border: 2px solid #555;
+}
+
+.score-container {
+  margin-top: 10px;
+  text-align: center;
+  color: white;
+  font-family: Arial, sans-serif;
+  font-size: 18px;
+}
+
+.player {
+  fill: #00ff00; /* プレイヤーキャラクターの色（緑） */
+}
+
+.enemy {
+  fill: #ff0000; /* 敵キャラクターの色（赤） */
+}

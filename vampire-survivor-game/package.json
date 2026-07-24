@@ -1,0 +1,24 @@
+{
+  "name": "vampire-survivor-game",
+  "version": "1.0.0",
+  "description": "Vampire Survivor 風の見下ろし型2Dゲーム",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "keywords": [
+    "game",
+    "express",
+    "2D",
+    "vampire-survivor"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
+}
