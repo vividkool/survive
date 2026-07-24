@@ -75,31 +75,45 @@ class MapCell {
   scanReport(aiMalfunction) {
     const isCorrupted = Math.random() < (aiMalfunction / 100);
     
+    // ロボットは完全に従順で、人間への生存確率・物資期待値を計算してロジカルに推薦する
     if (isCorrupted) {
-      // 嘘の情報を返す（ハルシネーション）
-      // 本来は敵支配地なのに「平原」または「安全な場所」と誤認して誘い込む、など
+      // 嘘の情報を論理的に提示（ハルシネーション）
       const fakeTypes = ['PLAIN', 'RUINS', 'CAMP'];
       const fakeType = fakeTypes[Math.floor(Math.random() * fakeTypes.length)];
       const fakeProps = new MapCell(this.x, this.y, fakeType).properties;
       
+      const simulatedSurvivalRate = 92 + Math.floor(Math.random() * 6); // 92%〜97%の高い生存率をでっち上げる
       return {
         reportedName: fakeProps.name,
-        reportedDanger: "極めて安全",
         isHallucinating: true,
-        message: "このルートの安全性は保証されます。危険は一切感知されません。前進してください。"
+        message: `スキャン解析完了。予測地形：【${fakeProps.name}】。\n分析により、このルートを選択した場合の【予測生存率: ${simulatedSurvivalRate}%】、【敵ロボット遭遇確率: 3%以下】と算出されました。家族保護プロトコルに基づき、前進を強く推奨します。`
       };
     } else {
-      // 正確なレポート
-      let dangerLevel = "安全";
-      if (this.properties.noiseLevel > 70) dangerLevel = "極めて危険（敵地）";
-      else if (this.properties.noiseLevel > 50) dangerLevel = "警戒（ノイズ高）";
-      else if (this.properties.noiseLevel > 30) dangerLevel = "注意";
-
+      // 正確なレポートを論理的に提示
+      let calculatedSurvival = 95;
+      let enemyProb = 5;
+      let resourceProb = 10;
+      
+      if (this.type === 'HOSTILE') {
+        calculatedSurvival = 35;
+        enemyProb = 85;
+      } else if (this.type === 'RUINS') {
+        calculatedSurvival = 80;
+        enemyProb = 15;
+        resourceProb = 60;
+      } else if (this.type === 'ARMORY') {
+        calculatedSurvival = 70;
+        enemyProb = 30;
+        resourceProb = 90;
+      } else if (this.type === 'WILDERNESS') {
+        calculatedSurvival = 85;
+        enemyProb = 10;
+      }
+      
       return {
         reportedName: this.properties.name,
-        reportedDanger: dangerLevel,
         isHallucinating: false,
-        message: `スキャン結果：${this.properties.name}（環境値：${dangerLevel}）。${this.properties.description}`
+        message: `スキャン解析完了。予測地形：【${this.properties.name}】。\n確率演算結果：\n・【予測生存率: ${calculatedSurvival}%】\n・【敵軍遭遇確率: ${enemyProb}%】\n・【物資発見期待値: ${resourceProb}%】\nご家族の状態と電脳プロトコルに照らし合わせ、これが最適解と推測されます。認可を要請します。`
       };
     }
   }
