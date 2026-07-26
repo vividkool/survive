@@ -16,6 +16,22 @@
         </header>
         
         <div class="canvas-container">
+          <!-- 演出フラッシュ・マズルフラッシュ用オーバーレイ -->
+          <div id="flash-overlay" class="flash-overlay"></div>
+          <div id="muzzle-overlay" class="muzzle-overlay"></div>
+
+          <!-- 移動後エンカウントモーダル -->
+          <div id="encounter-modal-overlay" class="modal-overlay" style="display: none;">
+            <div class="encounter-card">
+              <div class="encounter-header">
+                <div id="encounter-badge" class="encounter-badge"></div>
+                <div id="encounter-title" class="encounter-title"></div>
+              </div>
+              <div id="encounter-desc" class="encounter-desc"></div>
+              <div id="encounter-actions" class="encounter-actions"></div>
+            </div>
+          </div>
+
           <canvas id="gameCanvas" width="600" height="600"></canvas>
         </div>
       </section>
@@ -119,6 +135,7 @@
 
     <!-- ゲームに必要なスクリプト群 -->
     <script src="js/faction.js" type="module"></script>
+    <script src="js/encounterModal.js" type="module"></script>
     <script src="js/player.js"></script>
     <script src="js/enemy.js"></script>
     <script src="js/game.js" type="module"></script>

@@ -1,4 +1,5 @@
 import { FACTIONS, SoundRipple } from './faction.js';
+import { EncounterModal } from './encounterModal.js';
 
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
@@ -15,6 +16,27 @@ let movesCount = 0;
 
 // プレイヤー配置（CAMPを左上(0,0)、HOSPITALを右下(9,9)付近にする）
 const player = new Player(0, 0);
+
+// コントローラー・モーダルインスタンス
+const gameController = {
+  player,
+  addMessage,
+  revealRandomFarCell: () => {
+    // ランダムな未視界マスを開放
+    for (let i = 0; i < 5; i++) {
+      const rx = Math.floor(Math.random() * gridSize);
+      const ry = Math.floor(Math.random() * gridSize);
+      if (gridMap[ry] && gridMap[ry][rx]) {
+        gridMap[ry][rx].explored = true;
+      }
+    }
+  },
+  onResumeExploration: () => {
+    resumeExploration();
+  }
+};
+
+const encounterModal = new EncounterModal(gameController);
 
 // マップオブジェクト初期化
 let gridMap = [];
