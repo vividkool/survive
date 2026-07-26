@@ -199,11 +199,25 @@ function handleKeyMove(key) {
   }
 }
 
+// 次のターン選定（隣接マス選択・スキャン時）に前回の音紋・波紋アニメーションを削除
+function clearAllSoundRipples() {
+  for (let y = 0; y < gridSize; y++) {
+    for (let x = 0; x < gridSize; x++) {
+      if (gridMap[y] && gridMap[y][x]) {
+        gridMap[y][x].soundRipple = null;
+      }
+    }
+  }
+}
+
 // AIが移動先セルをスキャンし、プレイヤーに認可を求める
 function startDecisionMode(tx, ty) {
   gameMode = 'DECISION';
   targetCellX = tx;
   targetCellY = ty;
+
+  // 次回のターン選定開始時に前回の爆発音・射撃音の波状アニメーションを消去
+  clearAllSoundRipples();
 
   authorizeBtn.disabled = false;
   denyBtn.disabled = false;
@@ -238,13 +252,15 @@ function executeMove(tx, ty) {
   // マスごとのイベント
   const cell = gridMap[ty][tx];
 
-  // もし移動先マスに勢力ユニットがいる場合
-  if (cell.occupyingFaction) {
-    addMessage('SYSTEM', `【接触警報】${cell.occupyingFaction.badge} ${cell.occupyingFaction.name} の領域・警戒線へ突入しました！`, true);
-  }
-  
   if (cell.type === 'HOSPITAL') {
     endGameWin("医療ステーションに到達し、家族の治療に成功しました！");
+    return;
+  }
+
+  // もし移動先マスに勢力ユニットがいる場合、エンカウントモーダルを表示！
+  if (cell.occupyingFaction) {
+    addMessage('SYSTEM', `【接触警報】${cell.occupyingFaction.badge} ${cell.occupyingFaction.name} と接近・エンカウントしました！`, true);
+    encounterModal.show(cell.occupyingFaction, cell);
     return;
   }
   
