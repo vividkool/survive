@@ -1,3 +1,5 @@
+import { FACTIONS, SoundRipple } from './faction.js';
+
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 const width = canvas.width;
@@ -71,6 +73,8 @@ function addMessage(sender, text, isWarning = false) {
 
 // 10x10 マップ生成
 function generateMap() {
+  const factionList = Object.values(FACTIONS);
+
   for (let y = 0; y < gridSize; y++) {
     gridMap[y] = [];
     for (let x = 0; x < gridSize; x++) {
@@ -91,13 +95,51 @@ function generateMap() {
         else type = 'PLAIN';                       // 平原 (35%)
       }
       
-      gridMap[y][x] = new MapCell(x, y, type);
+      const cell = new MapCell(x, y, type);
+
+      // (0,0)以外に一定確率(35%)で5大勢力ユニットを初期配置
+      if (!(x === 0 && y === 0) && !(x === 9 && y === 9) && Math.random() < 0.35) {
+        const randomFaction = factionList[Math.floor(Math.random() * factionList.length)];
+        cell.occupyingFaction = randomFaction;
+      }
+
+      gridMap[y][x] = cell;
     }
   }
   
   // 初期位置を探索済みに
   gridMap[0][0].explored = true;
   revealSurroundings(0, 0);
+}
+
+// 毎ターン：視界外での敵勢力同士の交戦シミュレーションおよび音紋波紋（Sound Ripple）のアップデート
+function simulateFactionBattlesAndRipples() {
+  for (let y = 0; y < gridSize; y++) {
+    for (let x = 0; x < gridSize; x++) {
+      const cell = gridMap[y][x];
+
+      // 既存の音紋経過
+      if (cell.soundRipple) {
+        cell.soundRipple.onTurnElapsed();
+        if (cell.soundRipple.duration <= 0) {
+          cell.soundRipple = null;
+        }
+      }
+
+      // 勢力が滞在している場合、近隣の他勢力と時々衝突
+      if (cell.occupyingFaction && Math.random() < 0.25) {
+        const isExplosion = Math.random() < 0.4;
+        cell.soundRipple = new SoundRipple(x, y, isExplosion ? 'EXPLOSION' : 'GUNFIRE');
+        
+        // プレイヤーの視界外での戦闘メッセージログを通知
+        const dx = Math.abs(x - player.gridX);
+        const dy = Math.abs(y - player.gridY);
+        if (dx > 1 || dy > 1) { // 遠方
+          addMessage('HAL-9000', `【戦域音波検知】座標 (${x}, ${y}) 方向にて${isExplosion ? '大規模な爆発反応' : '激しい銃火'}を捕捉。MAP上に音紋波紋をマーキングしました。`, true);
+        }
+      }
+    }
+  }
 }
 
 // 周囲のマスを「探索済み」にして視界に入れる（マインスイーパのように周囲の情報を明らかにする）
@@ -168,8 +210,16 @@ function executeMove(tx, ty) {
   score = movesCount;
   player.onTurnElapsed();
 
+  // 敵同盟・第三者勢力の視界外交戦および音紋アップデートの実行
+  simulateFactionBattlesAndRipples();
+
   // マスごとのイベント
   const cell = gridMap[ty][tx];
+
+  // もし移動先マスに勢力ユニットがいる場合
+  if (cell.occupyingFaction) {
+    addMessage('SYSTEM', `【接触警報】${cell.occupyingFaction.badge} ${cell.occupyingFaction.name} の領域・警戒線へ突入しました！`, true);
+  }
   
   if (cell.type === 'HOSPITAL') {
     endGameWin("医療ステーションに到達し、家族の治療に成功しました！");
@@ -434,7 +484,13 @@ function draw() {
   for (let y = 0; y < gridSize; y++) {
     for (let x = 0; x < gridSize; x++) {
       const isPlayerHere = (player.gridX === x && player.gridY === y);
-      gridMap[y][x].draw(ctx, cellSize, isPlayerHere);
+      
+      // プレイヤーの近辺範囲（周囲1マス内かどうか）
+      const dx = Math.abs(x - player.gridX);
+      const dy = Math.abs(y - player.gridY);
+      const isNearPlayer = (dx <= 1 && dy <= 1);
+
+      gridMap[y][x].draw(ctx, cellSize, isPlayerHere, isNearPlayer);
     }
   }
 
