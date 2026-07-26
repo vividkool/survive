@@ -579,3 +579,262 @@ canvas {
   color: var(--text-primary);
 }
 
+/* ==========================================================================
+   3レイヤー (廃屋・廃車・がれき) 攻撃・スナイプモーダル スタイル
+   ========================================================================== */
+.snipe-card {
+  width: 95%;
+  max-width: 540px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--accent-red);
+  box-shadow: 0 0 35px rgba(255, 59, 48, 0.25);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+  overflow: hidden;
+}
+
+.snipe-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 8px;
+}
+
+.snipe-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.95rem;
+  color: var(--accent-red);
+  letter-spacing: 1px;
+}
+
+.snipe-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.snipe-close-btn:hover {
+  color: var(--accent-red);
+}
+
+/* 3レイヤー ステージ */
+.snipe-stage {
+  position: relative;
+  height: 240px;
+  background: linear-gradient(180deg, #090c12 0%, #151a24 100%);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  cursor: crosshair;
+}
+
+/* クロスヘア（スコープ照準） */
+.snipe-crosshair {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--accent-red);
+  border-radius: 50%;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  box-shadow: 0 0 8px var(--glow-red);
+  transition: transform 0.05s ease-out;
+}
+
+.snipe-crosshair::before, .snipe-crosshair::after {
+  content: '';
+  position: absolute;
+  background: var(--accent-red);
+}
+
+.snipe-crosshair::before {
+  top: 50%; left: -6px; width: 44px; height: 1px; transform: translateY(-50%);
+}
+.snipe-crosshair::after {
+  left: 50%; top: -6px; height: 44px; width: 1px; transform: translateX(-50%);
+}
+
+/* レイヤー共有 */
+.snipe-layer {
+  position: relative;
+  width: 100%;
+  padding: 6px 12px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: all 0.2s ease;
+}
+
+.layer-label {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+  pointer-events: none;
+}
+
+/* Layer 1: 廃屋 (奥景 / z-index 1) */
+.layer-building {
+  height: 75px;
+  background: linear-gradient(180deg, rgba(20, 25, 35, 0.9) 0%, rgba(12, 15, 22, 0.9) 100%);
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
+  z-index: 1;
+}
+
+/* Layer 2: 廃車 (中景 / z-index 2) */
+.layer-vehicle {
+  height: 75px;
+  background: linear-gradient(180deg, rgba(30, 38, 52, 0.75) 0%, rgba(18, 24, 34, 0.75) 100%);
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.15);
+  z-index: 2;
+}
+
+/* Layer 3: がれき (手前 / z-index 3) */
+.layer-rubble {
+  height: 75px;
+  background: linear-gradient(180deg, rgba(45, 55, 75, 0.6) 0%, rgba(25, 32, 45, 0.7) 100%);
+  z-index: 3;
+}
+
+/* ターゲット要素 */
+.snipe-target {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(10, 12, 16, 0.85);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
+}
+
+.snipe-target:hover {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 10px var(--glow-cyan);
+  transform: scale(1.05);
+}
+
+.snipe-target.selected {
+  border-color: var(--accent-red) !important;
+  background: rgba(255, 59, 48, 0.15) !important;
+  box-shadow: 0 0 14px var(--glow-red) !important;
+}
+
+.snipe-target.destroyed {
+  opacity: 0.3;
+  pointer-events: none;
+  filter: grayscale(100%);
+  text-decoration: line-through;
+}
+
+.target-icon {
+  font-size: 1.1rem;
+}
+
+.target-tag {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.7rem;
+  font-weight: bold;
+  color: var(--text-primary);
+}
+
+/* スナイプ情報パネル */
+.snipe-info-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(10, 11, 14, 0.6);
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+}
+
+.snipe-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+}
+
+.snipe-target-info {
+  font-size: 0.82rem;
+  color: var(--accent-cyan);
+  min-height: 24px;
+  line-height: 1.3;
+}
+
+.snipe-action-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.snipe-action-buttons .btn {
+  font-size: 0.72rem;
+  padding: 8px 6px;
+}
+
+/* ==========================================================================
+   DAY X ターン開始ダイナミック演出モーダル
+   ========================================================================== */
+.day-modal-overlay {
+  background: rgba(5, 6, 9, 0.92) !important;
+  backdrop-filter: blur(12px) !important;
+  z-index: 50 !important;
+}
+
+.day-modal-card {
+  text-align: center;
+  padding: 30px 40px;
+  background: rgba(18, 22, 30, 0.95);
+  border: 2px solid var(--accent-red);
+  box-shadow: 0 0 50px rgba(255, 59, 48, 0.4), inset 0 0 20px rgba(255, 59, 48, 0.2);
+  border-radius: 12px;
+  animation: zoomInAlert 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.day-subtitle {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.8rem;
+  letter-spacing: 3px;
+  color: var(--accent-cyan);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.day-modal-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 3.5rem;
+  font-weight: 900;
+  color: var(--accent-red);
+  text-shadow: 0 0 20px var(--glow-red), 0 0 40px var(--glow-red);
+  letter-spacing: 4px;
+  margin-bottom: 12px;
+}
+
+.day-description {
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  letter-spacing: 1px;
+}
+
+@keyframes zoomInAlert {
+  0% { transform: scale(0.6); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+

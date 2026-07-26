@@ -12,6 +12,9 @@ class MapCell {
     // 勢力ユニット滞在データ (null or Faction object)
     this.occupyingFaction = null; 
     
+    // 設置型電磁トラップフラグ
+    this.hasTrap = false;
+
     // 音紋・戦闘インジケーター (null or SoundRipple object)
     this.soundRipple = null;
   }
@@ -170,34 +173,31 @@ class MapCell {
       ctx.fillText(this.soundRipple.type === 'EXPLOSION' ? "💥[爆発音]" : "💥[銃撃音]", centerX, centerY + 3);
     }
 
-    // 勢力ユニットの描画：プレイヤーの近辺範囲(isNearPlayer = true)の場合のみ詳細が確認できる！
-    if (this.occupyingFaction) {
+    // 設置型トラップの描画
+    if (this.hasTrap) {
+      const centerX = screenX + cellSize / 2;
+      const centerY = screenY + cellSize / 2;
+      ctx.font = "11px monospace";
+      ctx.fillStyle = "#f97316";
+      ctx.textAlign = "center";
+      ctx.fillText("💣", centerX, centerY + 12);
+    }
+
+    // 勢力ユニットの描画：プレイヤーの周囲2マス範囲(isNearPlayer = true)の場合のみ可視化し、それ以外は完全非表示
+    if (this.occupyingFaction && isNearPlayer) {
       const centerX = screenX + cellSize / 2;
       const centerY = screenY + cellSize / 2;
 
-      if (isNearPlayer) {
-        // 近接範囲：詳細な勢力バッジとカラーを表示
-        ctx.fillStyle = this.occupyingFaction.color;
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, 8, 0, Math.PI * 2);
-        ctx.fill();
+      // 周囲2マス以内：詳細な勢力バッジとカラーを表示
+      ctx.fillStyle = this.occupyingFaction.color;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, 8, 0, Math.PI * 2);
+      ctx.fill();
 
-        ctx.font = "9px monospace";
-        ctx.fillStyle = "#ffffff";
-        ctx.textAlign = "center";
-        ctx.fillText(this.occupyingFaction.badge, centerX, centerY - 10);
-      } else {
-        // 遠方（非近接）：未知の動体反応 `[?]` のみ表示
-        ctx.fillStyle = "#71717a";
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, 5, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.font = "10px monospace";
-        ctx.fillStyle = "#a1a1aa";
-        ctx.textAlign = "center";
-        ctx.fillText("[❓動体]", centerX, centerY - 8);
-      }
+      ctx.font = "9px monospace";
+      ctx.fillStyle = "#ffffff";
+      ctx.textAlign = "center";
+      ctx.fillText(this.occupyingFaction.badge, centerX, centerY - 10);
     }
 
     // プレイヤー位置

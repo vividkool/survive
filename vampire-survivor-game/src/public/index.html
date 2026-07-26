@@ -32,6 +32,80 @@
             </div>
           </div>
 
+          <!-- 3レイヤー（廃屋・廃車・がれき）攻撃・スナイプモーダル -->
+          <div id="snipe-modal-overlay" class="modal-overlay" style="display: none;">
+            <div class="snipe-card">
+              <div class="snipe-header">
+                <div class="snipe-title">🎯 TACTICAL TARGETING (3-LAYER OVERVIEW)</div>
+                <button id="snipe-close-btn" class="snipe-close-btn">✕</button>
+              </div>
+
+              <!-- 3層レイアーステージ -->
+              <div id="snipe-stage" class="snipe-stage">
+                <!-- スコープクロスヘア -->
+                <div id="snipe-crosshair" class="snipe-crosshair"></div>
+
+                <!-- Layer 1 (奥景): 廃屋 -->
+                <div id="layer-building" class="snipe-layer layer-building">
+                  <div class="layer-label">LAYER 1: 廃屋 (BACKGROUND / RUINS)</div>
+                  <div class="building-structure">
+                    <div class="window-slot">
+                      <div id="target-building" class="snipe-target target-enemy" data-name="廃屋の2階窓（スナイパーAI）">
+                        <span class="target-icon">👾</span>
+                        <span class="target-tag">SNIPER AI</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Layer 2 (中景): 廃車 -->
+                <div id="layer-vehicle" class="snipe-layer layer-vehicle">
+                  <div class="layer-label">LAYER 2: 廃車 (MIDGROUND / VEHICLE)</div>
+                  <div class="vehicle-structure">
+                    <div id="target-vehicle" class="snipe-target target-drone" data-name="廃車の陰（巡回ドローン）">
+                      <span class="target-icon">🛸</span>
+                      <span class="target-tag">PATROL DRONE</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Layer 3 (手前): がれき -->
+                <div id="layer-rubble" class="snipe-layer layer-rubble">
+                  <div class="layer-label">LAYER 3: がれき (FOREGROUND / RUBBLE)</div>
+                  <div class="rubble-structure">
+                    <div id="target-rubble" class="snipe-target target-trap" data-name="がれき裏（警戒センサー）">
+                      <span class="target-icon">⚠️</span>
+                      <span class="target-tag">SENSOR / TRAP</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- スナイプステータス＆コントロール -->
+              <div class="snipe-info-panel">
+                <div class="snipe-meta">
+                  <span>残弾数 (AMMO): <strong id="snipe-ammo-count">0</strong></span>
+                  <span id="snipe-threat-status" style="color: var(--accent-green);">隠密状態</span>
+                </div>
+                <div id="snipe-target-info" class="snipe-target-info">
+                  ターゲットを選択してください（廃屋・廃車・がれきの影を精査中）
+                </div>
+                <div id="snipe-action-buttons" class="snipe-action-buttons">
+                  <!-- JSで動的にボタン生成 -->
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ターン開始時 "DAY X" アラート演出モーダル -->
+          <div id="day-modal-overlay" class="modal-overlay day-modal-overlay" style="display: none;">
+            <div class="day-modal-card">
+              <div class="day-subtitle">ELAPSED SURVIVAL TIME</div>
+              <div id="day-modal-title" class="day-modal-title">DAY 1</div>
+              <div class="day-description">敵味方AIが行動を開始しました。視界に注意してください。</div>
+            </div>
+          </div>
+
           <canvas id="gameCanvas" width="600" height="600"></canvas>
         </div>
       </section>
@@ -123,10 +197,12 @@
           <div class="decision-controls">
             <div class="action-row">
               <button id="btn-challenge" class="btn btn-cyan" disabled>問い詰める (再検証要求)</button>
+              <button id="btn-set-trap" class="btn btn-orange">💣 現在地にトラップ設置 (バッテリー: -15%)</button>
             </div>
             <div class="action-row">
               <button id="btn-authorize" class="btn btn-red" disabled>前進を認可する (AUTHORIZE MOVE)</button>
               <button id="btn-deny" class="btn btn-green" disabled>ルート却下・迂回 (HOLD & ROUTE BYPASS)</button>
+              <button id="btn-hold-turn" class="btn btn-muted">🛑 その場で待機する (PASS TURN)</button>
             </div>
           </div>
         </div>

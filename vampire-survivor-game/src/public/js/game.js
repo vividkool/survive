@@ -1,5 +1,6 @@
-import { FACTIONS, SoundRipple } from './faction.js';
+import { FACTIONS, SoundRipple, decideFactionMove } from './faction.js';
 import { EncounterModal } from './encounterModal.js';
+import { SnipeModal } from './snipeModal.js';
 
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
@@ -33,10 +34,23 @@ const gameController = {
   },
   onResumeExploration: () => {
     resumeExploration();
+  },
+  openSnipeModal: (faction, cell) => {
+    snipeModal.show(faction, cell);
+  },
+  triggerMuzzleFlashAnimation: () => {
+    encounterModal.triggerMuzzleFlashAnimation();
+  },
+  triggerRedAmbushFlash: () => {
+    encounterModal.triggerRedAmbushFlash();
+  },
+  triggerScreenShake: () => {
+    encounterModal.triggerScreenShake();
   }
 };
 
 const encounterModal = new EncounterModal(gameController);
+const snipeModal = new SnipeModal(gameController);
 
 // マップオブジェクト初期化
 let gridMap = [];
@@ -134,30 +148,90 @@ function generateMap() {
   revealSurroundings(0, 0);
 }
 
-// 毎ターン：視界外での敵勢力同士の交戦シミュレーションおよび音紋波紋（Sound Ripple）のアップデート
+// 毎ターン：マップ上の全NPC勢力の目的意思決定AI移動 & 異勢力同士の交戦シミュレーション
 function simulateFactionBattlesAndRipples() {
+  // 1. 各マスの音紋タイマー減衰
   for (let y = 0; y < gridSize; y++) {
     for (let x = 0; x < gridSize; x++) {
       const cell = gridMap[y][x];
-
-      // 既存の音紋経過
       if (cell.soundRipple) {
         cell.soundRipple.onTurnElapsed();
         if (cell.soundRipple.duration <= 0) {
           cell.soundRipple = null;
         }
       }
+    }
+  }
 
-      // 勢力が滞在している場合、近隣の他勢力と時々衝突
-      if (cell.occupyingFaction && Math.random() < 0.25) {
-        const isExplosion = Math.random() < 0.4;
-        cell.soundRipple = new SoundRipple(x, y, isExplosion ? 'EXPLOSION' : 'GUNFIRE');
-        
-        // プレイヤーの視界外での戦闘メッセージログを通知
-        const dx = Math.abs(x - player.gridX);
-        const dy = Math.abs(y - player.gridY);
-        if (dx > 1 || dy > 1) { // 遠方
-          addMessage('HAL-9000', `【戦域音波検知】座標 (${x}, ${y}) 方向にて${isExplosion ? '大規模な爆発反応' : '激しい銃火'}を捕捉。MAP上に音紋波紋をマーキングしました。`, true);
+  // 2. 処理済みフラグを保持しながら全勢力NPCの意思決定・移動処理
+  const movedCells = new Set();
+
+  for (let y = 0; y < gridSize; y++) {
+    for (let x = 0; x < gridSize; x++) {
+      const currentCell = gridMap[y][x];
+      if (currentCell.occupyingFaction && !movedCells.has(currentCell)) {
+        // AI思考アルゴリズム実行
+        const targetCell = decideFactionMove(currentCell, gridMap, player.gridX, player.gridY, gridSize);
+
+        if (targetCell && targetCell !== currentCell) {
+          const movingFaction = currentCell.occupyingFaction;
+          
+          if (!targetCell.occupyingFaction) {
+            // 移動先が空きマス：移動実行
+            targetCell.occupyingFaction = movingFaction;
+            currentCell.occupyingFaction = null;
+            movedCells.add(targetCell);
+
+            // 敵NPCがプレイヤーの現在地マスに踏み込んできた場合：急襲・受動エンカウント！
+            if (targetCell.x === player.gridX && targetCell.y === player.gridY) {
+              addMessage('SYSTEM', `【緊急警報！】${movingFaction.badge} ${movingFaction.name} に潜伏場所を発見され、奇襲を受けました！`, true);
+              encounterModal.show(movingFaction, targetCell, true); // isAmbushed = true (隠密不可)
+            }
+
+            // 💣 トラップ作動判定（敵・味方・第三者を問わず無差別爆発！）
+            if (targetCell.hasTrap) {
+              targetCell.hasTrap = false; // トラップ消費
+              targetCell.soundRipple = new SoundRipple(targetCell.x, targetCell.y, 'EXPLOSION');
+
+              if (movingFaction.id === 'RESISTANCE' || movingFaction.id === 'WEAK_SURVIVOR') {
+                // 誤爆！ 味方・生存者が巻き込まれた
+                targetCell.occupyingFaction = null; // 死亡/無効化
+                player.familyPanic = Math.min(100, player.familyPanic + 30);
+                addMessage(
+                  'HAL-9000',
+                  `【惨事発生！】座標 (${targetCell.x}, ${targetCell.y}) のトラップに味方【${movingFaction.name}】が接触・誤爆！ 大爆発により全滅しました！（家族パニック度 +30%）`,
+                  true
+                );
+              } else {
+                // 敵AIまたはレイダーが爆破された
+                targetCell.occupyingFaction = null; // 撃滅
+                addMessage(
+                  'HAL-9000',
+                  `【トラップ起爆成功！】座標 (${targetCell.x}, ${targetCell.y}) に設置した電磁地雷が作動！ 敵【${movingFaction.name}】を爆破・撃滅しました！`,
+                  true
+                );
+              }
+            }
+
+          } else if (targetCell.occupyingFaction.id !== currentCell.occupyingFaction.id) {
+            // 移動先に異勢力が滞在：戦闘・交戦発生！
+            const isExplosion = Math.random() < 0.4;
+            targetCell.soundRipple = new SoundRipple(targetCell.x, targetCell.y, isExplosion ? 'EXPLOSION' : 'GUNFIRE');
+
+            // 敗北/共倒れ判定（確率で片方を消去）
+            if (Math.random() < 0.5) {
+              targetCell.occupyingFaction = currentCell.occupyingFaction;
+            }
+            currentCell.occupyingFaction = null;
+            movedCells.add(targetCell);
+
+            // 戦闘ログ通知
+            addMessage(
+              'HAL-9000',
+              `【戦域戦闘検知】座標 (${targetCell.x}, ${targetCell.y}) にて勢力間激突！ ${isExplosion ? '大規模爆発' : '激しい銃火'}音紋をマークしました。`,
+              true
+            );
+          }
         }
       }
     }
@@ -181,7 +255,12 @@ function revealSurroundings(px, py) {
 
 // プレイヤーによるキー移動要求（隣接マス選択）
 function handleKeyMove(key) {
-  if (gameMode !== 'EXPLORE' || gameOver) return;
+  if (gameOver) return;
+
+  if (key === ' ' || key === 'Spacebar') {
+    passTurn();
+    return;
+  }
 
   let targetX = player.gridX;
   let targetY = player.gridY;
@@ -194,7 +273,7 @@ function handleKeyMove(key) {
 
   // 範囲内か
   if (targetX >= 0 && targetX < gridSize && targetY >= 0 && targetY < gridSize) {
-    // 意思決定モードに入る（AIの進行スキャン）
+    // 意思決定モードに入る（AIの進行スキャン・ルート切り替え）
     startDecisionMode(targetX, targetY);
   }
 }
@@ -246,6 +325,9 @@ function executeMove(tx, ty) {
   score = movesCount;
   player.onTurnElapsed();
 
+  // ターン開始時 "DAY X" モーダル演出の表示
+  showDayModal(score);
+
   // 敵同盟・第三者勢力の視界外交戦および音紋アップデートの実行
   simulateFactionBattlesAndRipples();
 
@@ -257,10 +339,10 @@ function executeMove(tx, ty) {
     return;
   }
 
-  // もし移動先マスに勢力ユニットがいる場合、エンカウントモーダルを表示！
+  // もし移動先マスに勢力ユニットがいる場合、エンカウントモーダルを表示！（自分からの能動進入: isAmbushed = false）
   if (cell.occupyingFaction) {
-    addMessage('SYSTEM', `【接触警報】${cell.occupyingFaction.badge} ${cell.occupyingFaction.name} と接近・エンカウントしました！`, true);
-    encounterModal.show(cell.occupyingFaction, cell);
+    addMessage('SYSTEM', `【接触警報】${cell.occupyingFaction.badge} ${cell.occupyingFaction.name} の支配区域へ侵入・遭遇しました。隠密またはアクションを選択してください。`, true);
+    encounterModal.show(cell.occupyingFaction, cell, false); // isAmbushed = false (隠密行動可能)
     return;
   }
   
@@ -291,6 +373,21 @@ function executeMove(tx, ty) {
     endGame("プレイヤーが力尽き死亡しました。");
   }
 
+  resumeExploration();
+}
+
+// 移動せずにその場で潜伏・待機して1ターン消費（PASS TURN）
+function passTurn() {
+  if (gameOver) return;
+
+  movesCount++;
+  score = movesCount;
+  player.onTurnElapsed();
+
+  showDayModal(score);
+  simulateFactionBattlesAndRipples();
+
+  addMessage('SYSTEM', `【待機選択】移動せず現在地 (${player.gridX}, ${player.gridY}) で1ターン隠密待機しました。周囲の動体が移動・行動しました。`);
   resumeExploration();
 }
 
@@ -464,7 +561,7 @@ function init() {
 
 // キャンバスクリック検知
 function handleCanvasClick(e) {
-  if (gameMode !== 'EXPLORE' || gameOver) return;
+  if (gameOver) return;
 
   const rect = canvas.getBoundingClientRect();
   const scaleX = canvas.width / rect.width;
@@ -481,7 +578,7 @@ function handleCanvasClick(e) {
 
 // タッチ操作検知
 function handleCanvasTouch(e) {
-  if (gameMode !== 'EXPLORE' || gameOver) return;
+  if (gameOver) return;
   if (e.touches.length === 0) return;
 
   const rect = canvas.getBoundingClientRect();
@@ -523,10 +620,10 @@ function draw() {
     for (let x = 0; x < gridSize; x++) {
       const isPlayerHere = (player.gridX === x && player.gridY === y);
       
-      // プレイヤーの近辺範囲（周囲1マス内かどうか）
+      // プレイヤーの視界/動体探知範囲（周囲2マス以内）
       const dx = Math.abs(x - player.gridX);
       const dy = Math.abs(y - player.gridY);
-      const isNearPlayer = (dx <= 1 && dy <= 1);
+      const isNearPlayer = (dx <= 2 && dy <= 2);
 
       gridMap[y][x].draw(ctx, cellSize, isPlayerHere, isNearPlayer);
     }
@@ -542,6 +639,60 @@ function draw() {
   }
 
   requestAnimationFrame(draw);
+}
+
+// ターン開始時 "DAY X" アラート演出モーダルの表示
+function showDayModal(dayNum) {
+  const overlay = document.getElementById("day-modal-overlay");
+  const titleEl = document.getElementById("day-modal-title");
+
+  if (!overlay || !titleEl) return;
+
+  titleEl.textContent = `DAY ${dayNum}`;
+  overlay.style.display = "flex";
+
+  // 1.2秒後に自動消灯・フェードアウト
+  setTimeout(() => {
+    overlay.style.display = "none";
+  }, 1200);
+
+  // オーバーレイタップでも即時閉じられるように
+  overlay.onclick = () => {
+    overlay.style.display = "none";
+  };
+}
+
+// ターン中のトラップ設置ボタン処理
+const setTrapBtn = document.getElementById("btn-set-trap");
+if (setTrapBtn) {
+  setTrapBtn.addEventListener("click", () => {
+    if (gameOver) return;
+
+    if (player.battery < 15) {
+      addMessage('SYSTEM', "【設置不可】地雷トラップの設置・起動にはバッテリー15%が必要です。", true);
+      return;
+    }
+
+    const currentCell = gridMap[player.gridY][player.gridX];
+    if (currentCell.hasTrap) {
+      addMessage('SYSTEM', "すでにこのマスには電磁トラップが設置されています。");
+      return;
+    }
+
+    player.battery -= 15;
+    currentCell.hasTrap = true;
+    updateHUD();
+
+    addMessage('SYSTEM', `【トラップ設置完了】現在地 (${player.gridX}, ${player.gridY}) に電磁地雷を設置しました（💣）。敵・味方を問わず侵入者に爆発ダメージを与えます。`);
+  });
+}
+
+// ターン待機ボタン処理
+const holdTurnBtn = document.getElementById("btn-hold-turn");
+if (holdTurnBtn) {
+  holdTurnBtn.addEventListener("click", () => {
+    passTurn();
+  });
 }
 
 init();

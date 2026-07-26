@@ -13,12 +13,14 @@ export class EncounterModal {
     this.gameSection = document.querySelector(".game-section");
   }
 
-  show(faction, cell) {
+  show(faction, cell, isAmbushed = false) {
     this.modalOverlay.style.display = "flex";
     this.badgeEl.textContent = faction.badge;
     this.badgeEl.style.color = faction.color;
     this.titleEl.textContent = faction.name;
-    this.descEl.textContent = faction.description;
+    this.descEl.textContent = isAmbushed 
+      ? `🚨 【奇襲被弾】${faction.name}` 
+      : faction.name;
 
     this.actionsContainer.innerHTML = "";
 
@@ -31,9 +33,21 @@ export class EncounterModal {
     } 
     // 敵対・掠奪勢力 (レイダー, 最新AI A, 最新AI B)
     else {
-      this.createActionButton("💥 先制射撃を行う (弾薬: -1)", "btn-red", () => this.handlePreemptiveStrike(faction, cell));
-      this.createActionButton("🛡️ 警戒防御で進入する", "btn-orange", () => this.handleAmbushRetreat(faction));
+      // 自分から進んで敵地に侵入した場合のみ「隠密行動」が可能！
+      if (!isAmbushed) {
+        this.createActionButton("🥷 隠密行動 (足音を消して通過 / 遭遇回避)", "btn-green", () => this.handleStealthAction(faction, cell));
+      }
+      this.createActionButton("🎯 3レイヤー照準 (廃屋/廃車/がれき) 奇襲・スナイプ", "btn-red", () => this.handleTacticalSnipe(faction, cell));
+      this.createActionButton("💥 即時先制射撃 (弾薬: -1)", "btn-orange", () => this.handlePreemptiveStrike(faction, cell));
+      this.createActionButton("🛡️ 警戒防御で進入する", "btn-muted", () => this.handleAmbushRetreat(faction));
     }
+  }
+
+  // 隠密行動ハンドラー
+  handleStealthAction(faction, cell) {
+    // 隠密成功（戦闘を起こさず物資回収・隠避）
+    this.game.addMessage('SYSTEM', `【隠密成功】${faction.name}のセンサーを掻い潜り、息を殺して物音を立てずに通過・移動を完了しました。`);
+    this.close();
   }
 
   createActionButton(text, cssClass, onClick) {
@@ -69,6 +83,14 @@ export class EncounterModal {
     cell.occupyingFaction = null; // ガードとして同行したためマスから移動
     this.game.addMessage('SYSTEM', `【護衛同行】${faction.name}が一時的に同行し、家族の不安を和らげました（パニック度 -25%）。`);
     this.close();
+  }
+
+  // アクション: 3レイヤー戦術スナイプ・奇襲モーダルの起動
+  handleTacticalSnipe(faction, cell) {
+    this.modalOverlay.style.display = "none"; // 遭遇モーダルを一時隠す
+    if (this.game.openSnipeModal) {
+      this.game.openSnipeModal(faction, cell);
+    }
   }
 
   // アクション: 情報交換
