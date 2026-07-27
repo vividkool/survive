@@ -112,31 +112,31 @@
 
       <!-- 右側：AI HUD & コグニティブ対話モジュール -->
       <section class="hud-section">
-        <!-- プレイヤー（本人）のサバイバルステータス（ハンバーガー式ドロワーに変更） -->
+        <!-- 主人公チーム（AIロボット & 重症患者）のサバイバルステータス -->
         <div class="hud-panel integrity-drawer">
           <input type="checkbox" id="drawer-toggle" class="drawer-toggle" />
           <label for="drawer-toggle" class="hud-panel-title drawer-label">
-            <span>HUMAN INTEGRITY (本人ステータス)</span>
+            <span>UNIT INTEGRITY (AIロボット & 護衛状態)</span>
             <span class="drawer-arrow">[ 閉じる / 開く ]</span>
           </label>
           <div class="drawer-content">
             <div class="status-grid">
               <div class="status-card">
-                <div class="status-label">YOUR HP</div>
+                <div class="status-label">ROBOT FRAME HP (機体耐久度)</div>
                 <div class="status-value"><span id="hp-val">100</span> / 100</div>
                 <div class="progress-bar-bg">
                   <div id="hp-fill" class="progress-bar-fill fill-green" style="width: 100%;"></div>
                 </div>
               </div>
               <div class="status-card">
-                <div class="status-label">AMMO</div>
+                <div class="status-label">STEALTH AMMO (麻酔/消音弾)</div>
                 <div class="status-value"><span id="ammo-val">8</span> / 20</div>
                 <div class="progress-bar-bg">
                   <div id="ammo-fill" class="progress-bar-fill fill-cyan" style="width: 40%;"></div>
                 </div>
               </div>
               <div class="status-card">
-                <div class="status-label">LIGHT BATTERY</div>
+                <div class="status-label">CORE BATTERY</div>
                 <div class="status-value"><span id="battery-val">100</span>%</div>
                 <div class="progress-bar-bg">
                   <div id="battery-fill" class="progress-bar-fill fill-cyan" style="width: 100%;"></div>
@@ -146,19 +146,19 @@
           </div>
         </div>
 
-        <!-- 家族のサバイバルステータス -->
+        <!-- 重症患者のバイタル・命維持ステータス -->
         <div class="hud-panel">
-          <div class="hud-panel-title">FAMILY INTEGRITY (家族の被災・負傷状況)</div>
+          <div class="hud-panel-title">PATIENT VITAL (搬送中・重症患者の生命維持)</div>
           <div class="status-grid">
             <div class="status-card">
-              <div class="status-label">FAMILY HP (傷の状態)</div>
+              <div class="status-label">PATIENT VITAL (患者の生命力)</div>
               <div class="status-value"><span id="family-hp-val">90</span> / 100</div>
               <div class="progress-bar-bg">
                 <div id="family-hp-fill" class="progress-bar-fill fill-green" style="width: 90%;"></div>
               </div>
             </div>
             <div class="status-card">
-              <div class="status-label">PANIC LEVEL (精神疲弊)</div>
+              <div class="status-label">DETECTION RISK (戦闘音・索敵被検知度)</div>
               <div class="status-value"><span id="family-panic-val">10%</span></div>
               <div class="progress-bar-bg">
                 <div id="family-panic-fill" class="progress-bar-fill fill-green" style="width: 10%;"></div>

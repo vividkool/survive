@@ -111,6 +111,15 @@ function addMessage(sender, text, isWarning = false) {
 function generateMap() {
   const factionList = Object.values(FACTIONS);
 
+  // 定位置ターミナル 5箇所の座標設定
+  const terminalPositions = [
+    {x: 2, y: 1},
+    {x: 7, y: 2},
+    {x: 4, y: 5},
+    {x: 1, y: 8},
+    {x: 8, y: 7}
+  ];
+
   for (let y = 0; y < gridSize; y++) {
     gridMap[y] = [];
     for (let x = 0; x < gridSize; x++) {
@@ -133,16 +142,26 @@ function generateMap() {
       
       const cell = new MapCell(x, y, type);
 
-      // (0,0)以外に一定確率(35%)で5大勢力ユニットを初期配置
-      if (!(x === 0 && y === 0) && !(x === 9 && y === 9) && Math.random() < 0.35) {
+      // (0,0)以外に一定確率(17%：敵数を約半分に調整)で5大勢力ユニットを初期配置
+      if (!(x === 0 && y === 0) && !(x === 9 && y === 9) && Math.random() < 0.17) {
         const randomFaction = factionList[Math.floor(Math.random() * factionList.length)];
         cell.occupyingFaction = randomFaction;
+        cell.unitHp = 100; // 初期HP
       }
 
       gridMap[y][x] = cell;
     }
   }
-  
+
+  // 💻 5箇所の定位置アクセス・ターミナルを設置
+  terminalPositions.forEach(pos => {
+    if (gridMap[pos.y] && gridMap[pos.y][pos.x]) {
+      gridMap[pos.y][pos.x].isTerminal = true;
+      gridMap[pos.y][pos.x].type = 'RUINS'; // ターミナル拠点は廃屋地形
+      gridMap[pos.y][pos.x].properties = gridMap[pos.y][pos.x].getPropertiesByType();
+    }
+  });
+
   // 初期位置を探索済みに
   gridMap[0][0].explored = true;
   revealSurroundings(0, 0);
@@ -335,7 +354,7 @@ function executeMove(tx, ty) {
   const cell = gridMap[ty][tx];
 
   if (cell.type === 'HOSPITAL') {
-    endGameWin("医療ステーションに到達し、家族の治療に成功しました！");
+    endGameWin("安全エリアの医療施設に到達！ 重症患者の緊急治療カプセルへの収容に成功しました！");
     return;
   }
 
@@ -546,7 +565,7 @@ function adjustSignalWave() {
 // 初期化
 function init() {
   generateMap();
-  addMessage('HAL-9000', "システムオンライン。目的地はマップ右下(9,9)の『医療ステーション』です。隣接するマスをタップまたはクリックして移動先を選択してください。私の推薦分析と通信ノイズを信じるか、迂回するかはあなた次第です。");
+  addMessage('HAL-9000', "システムオンライン。当機（護衛AIロボット）の目標は、搬送中の重症患者を無事に(9,9)『医療施設』へ送り届けることです。患者を抱えているため大きな戦闘音や直接攻撃は危険を伴います。ハッキング、トラップ、陽動を駆使して隠密ルートを確保してください。");
   updateHUD();
   
   // マウス・タッチ移動のリスナー追加
@@ -600,6 +619,17 @@ function checkAndTriggerMove(targetX, targetY) {
   // 範囲外チェック
   if (targetX < 0 || targetX >= gridSize || targetY < 0 || targetY >= gridSize) return;
 
+  const currentCell = gridMap[player.gridY][player.gridX];
+  const targetCell = gridMap[targetY][targetX];
+
+  // 💻 プレイヤーがターミナル上にいる場合：線分の先の敵マスをタップ/クリックすると直接リモートジャック（スナイプ画面）が起動！
+  if (currentCell && currentCell.isTerminal && targetCell.occupyingFaction) {
+    currentCell.terminalKeyAcquired = true; // パスキー自動確保
+    addMessage('SYSTEM', `【DIRECT REMOTE LINK】ターミナルから接続線が繋がった敵 ${targetCell.occupyingFaction.badge} ${targetCell.occupyingFaction.name} の視界・システムをダイレクトジャックしました！`, true);
+    snipeModal.show(targetCell.occupyingFaction, targetCell);
+    return;
+  }
+
   // 現在地から1マス離れた上下左右（隣接マス）のみ移動可能
   const dx = Math.abs(targetX - player.gridX);
   const dy = Math.abs(targetY - player.gridY);
@@ -607,7 +637,7 @@ function checkAndTriggerMove(targetX, targetY) {
   if ((dx === 1 && dy === 0) || (dx === 0 && dy === 1)) {
     startDecisionMode(targetX, targetY);
   } else {
-    addMessage('SYSTEM', "そこには移動できません。前後左右の隣接するマスを選択してください。");
+    addMessage('SYSTEM', "そこには移動できません。前後左右の隣接するマスを選択、またはターミナル接続線が伸びた敵をタップしてリモートジャックしてください。");
   }
 }
 
@@ -627,6 +657,51 @@ function draw() {
 
       gridMap[y][x].draw(ctx, cellSize, isPlayerHere, isNearPlayer);
     }
+  }
+
+  // 💻 ターミナルアクセス時：接続可能な全敵機体へサイバー線分（アクセス・ビーム線）を描画！
+  const currentCell = gridMap[player.gridY][player.gridX];
+  if (currentCell && currentCell.isTerminal) {
+    const termCenterX = player.gridX * cellSize + cellSize / 2;
+    const termCenterY = player.gridY * cellSize + cellSize / 2;
+
+    ctx.save();
+    for (let y = 0; y < gridSize; y++) {
+      for (let x = 0; x < gridSize; x++) {
+        const targetCell = gridMap[y][x];
+        // 敵対ロボットまたは各種勢力が存在する場合
+        if (targetCell.occupyingFaction && !(x === player.gridX && y === player.gridY)) {
+          const enemyCenterX = x * cellSize + cellSize / 2;
+          const enemyCenterY = y * cellSize + cellSize / 2;
+
+          // 点滅アニメーション線
+          const dashOffset = (Date.now() / 30) % 20;
+          ctx.beginPath();
+          ctx.moveTo(termCenterX, termCenterY);
+          ctx.lineTo(enemyCenterX, enemyCenterY);
+          ctx.strokeStyle = targetCell.occupyingFaction.color || "#00f0ff";
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([6, 4]);
+          ctx.lineDashOffset = -dashOffset;
+          ctx.stroke();
+
+          // 敵ユニット位置に照準ロックマーク
+          ctx.beginPath();
+          ctx.arc(enemyCenterX, enemyCenterY, 14, 0, Math.PI * 2);
+          ctx.strokeStyle = "#00f0ff";
+          ctx.lineWidth = 1;
+          ctx.setLineDash([]);
+          ctx.stroke();
+
+          // リモートジャック可能タグ表示
+          ctx.font = "9px monospace";
+          ctx.fillStyle = "#00f0ff";
+          ctx.textAlign = "center";
+          ctx.fillText("📡REMOTE LINK", enemyCenterX, enemyCenterY - 16);
+        }
+      }
+    }
+    ctx.restore();
   }
 
   // 選択枠（意思決定モード中のみ）

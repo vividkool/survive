@@ -138,20 +138,54 @@ export class SnipeModal {
 
     if (!this.selectedTarget) return;
 
-    // 攻撃実行ボタン
+    // 1. 乗っ取り・同士討ち射撃実行ボタン (実弾消費またはハッキング実行)
     const executeBtn = document.createElement("button");
     executeBtn.className = "btn btn-red";
-    executeBtn.textContent = `🎯 射撃・アクション実行 (弾薬: -1)`;
+    executeBtn.textContent = `🤖 乗っ取りスナイプ / 同士討ちトリガー発動`;
     executeBtn.onclick = () => this.executeAttack();
+
+    // 2. ⚡ 環境起爆・ハッキング爆破ボタン
+    const hackExplodeBtn = document.createElement("button");
+    hackExplodeBtn.className = "btn btn-orange";
+    hackExplodeBtn.textContent = `💥 カメラ視界経由で高圧線/燃料缶を遠隔起爆 (バッテリー: -10%)`;
+    hackExplodeBtn.onclick = () => this.executeHackExplosion();
 
     // キャンセルボタン
     const cancelBtn = document.createElement("button");
     cancelBtn.className = "btn btn-muted";
-    cancelBtn.textContent = `↩️ 撤退・交戦回避`;
+    cancelBtn.textContent = `↩️ 接続切断・手動切離し`;
     cancelBtn.onclick = () => this.close();
 
     container.appendChild(executeBtn);
+    container.appendChild(hackExplodeBtn);
     container.appendChild(cancelBtn);
+  }
+
+  // ⚡ カメラ視界経由の環境遠隔起爆
+  executeHackExplosion() {
+    if (this.game.player.battery < 10) {
+      this.updateTargetInfo("【バッテリー不足】遠隔オーバーロード爆発には電力10%が必要です。");
+      return;
+    }
+
+    this.game.player.battery -= 10;
+    if (this.selectedTarget && this.selectedTarget.element) {
+      this.selectedTarget.element.classList.add("destroyed");
+    }
+
+    if (this.currentCell) {
+      this.currentCell.occupyingFaction = null; // 敵爆滅
+    }
+
+    this.game.triggerMuzzleFlashAnimation?.();
+    this.game.triggerScreenShake?.();
+
+    this.game.addMessage(
+      "SYSTEM",
+      `【環境遠隔起爆成功！】乗っ取った敵カメラの視界から ${this.selectedTarget ? this.selectedTarget.name : "周辺設備"} の燃料缶へ信号を送信！ 敵AIユニットを大爆発で撃滅し、同士討ちパニックを誘発しました！`,
+      true
+    );
+    this.close();
   }
 
   // 攻撃実行ロジック

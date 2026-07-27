@@ -15,6 +15,10 @@ class MapCell {
     // 設置型電磁トラップフラグ
     this.hasTrap = false;
 
+    // 定位置アクセス・ターミナルフラグ
+    this.isTerminal = false;
+    this.terminalKeyAcquired = false; // パスキー取得済みか
+
     // 音紋・戦闘インジケーター (null or SoundRipple object)
     this.soundRipple = null;
   }
@@ -181,6 +185,20 @@ class MapCell {
       ctx.fillStyle = "#f97316";
       ctx.textAlign = "center";
       ctx.fillText("💣", centerX, centerY + 12);
+    }
+
+    // 💻 定位置アクセス・ターミナルの描画
+    if (this.isTerminal) {
+      const centerX = screenX + cellSize / 2;
+      const centerY = screenY + cellSize / 2;
+      ctx.font = "14px monospace";
+      ctx.textAlign = "center";
+      ctx.fillText(this.terminalKeyAcquired ? "🔑" : "💻", centerX, centerY + (this.hasTrap ? -8 : 4));
+      
+      // ターミナルの外枠強調
+      ctx.strokeStyle = this.terminalKeyAcquired ? "#00f0ff" : "#eab308";
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(screenX + 3, screenY + 3, cellSize - 6, cellSize - 6);
     }
 
     // 勢力ユニットの描画：プレイヤーの周囲2マス範囲(isNearPlayer = true)の場合のみ可視化し、それ以外は完全非表示

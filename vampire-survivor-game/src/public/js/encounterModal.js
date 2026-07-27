@@ -24,6 +24,14 @@ export class EncounterModal {
 
     this.actionsContainer.innerHTML = "";
 
+    // 💻 マスにアクセス・ターミナルが設置されている場合
+    if (cell && cell.isTerminal) {
+      const keyBtnText = cell.terminalKeyAcquired 
+        ? "🔑 パスキー所有済み (再アクセス可能)" 
+        : "💻 ターミナルハック (敵パスキーを奪取・暗号解除)";
+      this.createActionButton(keyBtnText, "btn-cyan", () => this.handleTerminalHack(cell, faction));
+    }
+
     // 生存者・中立勢力 (レジスタンス, 脆弱生存者)
     if (faction.id === 'RESISTANCE' || faction.id === 'WEAK_SURVIVOR') {
       this.createActionButton("🤝 交易（バッテリー⇄実弾交換）", "btn-cyan", () => this.handleTrade(faction));
@@ -37,9 +45,32 @@ export class EncounterModal {
       if (!isAmbushed) {
         this.createActionButton("🥷 隠密行動 (足音を消して通過 / 遭遇回避)", "btn-green", () => this.handleStealthAction(faction, cell));
       }
-      this.createActionButton("🎯 3レイヤー照準 (廃屋/廃車/がれき) 奇襲・スナイプ", "btn-red", () => this.handleTacticalSnipe(faction, cell));
-      this.createActionButton("💥 即時先制射撃 (弾薬: -1)", "btn-orange", () => this.handlePreemptiveStrike(faction, cell));
+      this.createActionButton("🎯 3レイヤー照準 (廃屋/廃車/がれき) 奇襲・遠隔ハック/スナイプ", "btn-red", () => this.handleTacticalSnipe(faction, cell));
+      this.createActionButton("🤖 リモートジャック (奪取敵カメラ視界から敵同士討ち誘導/スナイプ)", "btn-cyan", () => this.handleRemoteJack(faction, cell));
+      this.createActionButton("💥 即時消音射撃 (麻酔弾: -1)", "btn-orange", () => this.handlePreemptiveStrike(faction, cell));
       this.createActionButton("🛡️ 警戒防御で進入する", "btn-muted", () => this.handleAmbushRetreat(faction));
+    }
+  }
+
+  // 💻 ターミナルハック・パスキー取得
+  handleTerminalHack(cell, faction) {
+    cell.terminalKeyAcquired = true;
+    this.game.addMessage('SYSTEM', `【アクセス成功】定位置ターミナルに侵入。暗号解読（ブルートフォース）成功！ 【${faction ? faction.name : "周辺ネットワーク"}】の暗号パスキー(RSA-256)を取得し、敵ネットワークを直接リモート乗っ取り可能になりました！`, true);
+
+    if (faction) {
+      // パキー取得により敵カメラを乗っ取りスナイプ画面へ移行！
+      this.handleRemoteJack(faction, cell);
+    } else {
+      this.close();
+    }
+  }
+
+  // 🤖 敵カメラ・端末のリモートジャック（スナイプモーダルの再利用）
+  handleRemoteJack(faction, cell) {
+    this.modalOverlay.style.display = "none";
+    this.game.addMessage('SYSTEM', `【REMOTE JACK】敵機体 ${faction.badge} ${faction.name} の光学カメラ/照準システムを乗っ取りました！ スナイプUIより敵同士討ち・爆破・スナイプを実行できます。`, true);
+    if (this.game.openSnipeModal) {
+      this.game.openSnipeModal(faction, cell);
     }
   }
 

@@ -50,6 +50,9 @@ export function decideFactionMove(currentCell, gridMap, playerX, playerY, gridSi
   const cx = currentCell.x;
   const cy = currentCell.y;
 
+  // ダメージを負っているか？ (HP <= 50 なら修理補給のため戦闘・危険を避けて移動)
+  const isDamaged = currentCell.unitHp && currentCell.unitHp <= 50;
+
   // 上下左右の移動可能な隣接マスを取得
   const validNeighbors = [];
   const dirs = [{dx: 0, dy: -1}, {dx: 0, dy: 1}, {dx: -1, dy: 0}, {dx: 1, dy: 0}];
@@ -69,9 +72,16 @@ export function decideFactionMove(currentCell, gridMap, playerX, playerY, gridSi
   let targetY = null;
   let isAvoidMode = false; // 避難・隠密回避フラグ
 
-  // 1. 敵AIロボット (AI_ELITE_A, AI_HEGEMONY_B): 爆発音・射撃音を最優先探知、人間・対立AIに接近
-  if (faction.id === 'AI_ELITE_A' || faction.id === 'AI_HEGEMONY_B') {
-    // 【最優先】マップ全域の爆発音・射撃音 (soundRipple) をスキャン
+  // ⭐ ダメージ負傷中のユニット：最優先で戦闘・脅威を避けて修理補給退避行動をとる
+  if (isDamaged) {
+    isAvoidMode = true;
+    // 敵・プレイヤ―・爆発音などの最も近い危険から離れる
+    targetX = playerX;
+    targetY = playerY;
+  }
+  // 1. 敵AIロボット (AI_ELITE_A, AI_HEGEMONY_B): 銃撃音・爆発音へ即座に向かい、敵対他勢力を探索
+  else if (faction.id === 'AI_ELITE_A' || faction.id === 'AI_HEGEMONY_B') {
+    // 【最優先】マップ全域の爆発音・射撃音 (soundRipple) をスキャンしてその方向へ移動！
     let closestRippleDist = 999;
     let rippleX = null;
     let rippleY = null;
@@ -91,7 +101,7 @@ export function decideFactionMove(currentCell, gridMap, playerX, playerY, gridSi
     }
 
     if (rippleX !== null && rippleY !== null) {
-      // 爆発音・銃撃音が起きた場所へ急行！
+      // 🔊 銃撃音・爆発音が聞こえたマスへ調査急行！
       targetX = rippleX;
       targetY = rippleY;
     } else {
@@ -101,7 +111,7 @@ export function decideFactionMove(currentCell, gridMap, playerX, playerY, gridSi
         targetX = playerX;
         targetY = playerY;
       } else {
-        // 周囲の敵対他勢力を探索
+        // 周囲の敵対他勢力を探して接近
         for (let r = 1; r <= 3; r++) {
           for (let dy = -r; dy <= r; dy++) {
             for (let dx = -r; dx <= r; dx++) {
@@ -122,9 +132,8 @@ export function decideFactionMove(currentCell, gridMap, playerX, playerY, gridSi
       }
     }
   }
-  // 2. レジスタンス & 脆弱生存者: 攻撃されない限り隠密・交戦回避（危険から離れる）
+  // 2. レジスタンス & 脆弱生存者: 隠密・交戦回避（危険から離れる）
   else if (faction.id === 'RESISTANCE' || faction.id === 'WEAK_SURVIVOR') {
-    // 近くの危険（敵AIやレイダー）をチェック
     let threatX = null;
     let threatY = null;
     for (let dy = -2; dy <= 2; dy++) {
@@ -143,15 +152,13 @@ export function decideFactionMove(currentCell, gridMap, playerX, playerY, gridSi
     }
 
     if (threatX !== null) {
-      // 危険から遠ざかる（交戦回避モード）
       isAvoidMode = true;
       targetX = threatX;
       targetY = threatY;
     }
   }
-  // 3. レイダー: 人間（プレイヤー・生存者）なら攻撃強襲、ロボット相手なら隠密回避
+  // 3. レイダー: 人間なら襲撃接近、ロボットや損傷時は回避
   else if (faction.id === 'RAIDERS') {
-    // 敵AIロボットが近くにいる場合は恐れて隠密回避
     let robotX = null;
     let robotY = null;
     for (let dy = -2; dy <= 2; dy++) {
@@ -170,12 +177,10 @@ export function decideFactionMove(currentCell, gridMap, playerX, playerY, gridSi
     }
 
     if (robotX !== null) {
-      // ロボットから隠密退避
       isAvoidMode = true;
       targetX = robotX;
       targetY = robotY;
     } else {
-      // 人間（プレイヤーや弱小生存者）を見つけると強襲接近
       const distToPlayer = Math.abs(playerX - cx) + Math.abs(playerY - cy);
       if (distToPlayer <= 3) {
         targetX = playerX;
@@ -184,12 +189,11 @@ export function decideFactionMove(currentCell, gridMap, playerX, playerY, gridSi
     }
   }
 
-  // 移動先の決定アルゴリズム（AI-A: 縦優先 / AI-B: 横優先）
+  // 移動先の決定アルゴリズム
   let bestCell = null;
 
   if (targetX !== null && targetY !== null) {
     if (isAvoidMode) {
-      // ターゲット（脅威）から一番遠ざかる隣接マスを選ぶ
       let maxDist = -1;
       validNeighbors.forEach(cell => {
         if (!cell.occupyingFaction) {
@@ -201,7 +205,6 @@ export function decideFactionMove(currentCell, gridMap, playerX, playerY, gridSi
         }
       });
     } else {
-      // ターゲット（標的/音紋）へアプローチ
       let bestScore = -999;
 
       validNeighbors.forEach(cell => {
@@ -209,21 +212,14 @@ export function decideFactionMove(currentCell, gridMap, playerX, playerY, gridSi
         const dy = Math.abs(cell.y - targetY);
         const totalDist = dx + dy;
 
-        let score = -totalDist * 10; // 基本スコア（距離が近いほど高スコア）
+        let score = -totalDist * 10;
 
-        // AI-A (AI_ELITE_A): 縦方向（Y軸）の接近を優先評価
         if (faction.id === 'AI_ELITE_A') {
           const currentDy = Math.abs(cy - targetY);
-          if (dy < currentDy) {
-            score += 15; // Y軸距離が縮まる移動にボーナス
-          }
-        }
-        // AI-B (AI_HEGEMONY_B): 横方向（X軸）の接近を優先評価
-        else if (faction.id === 'AI_HEGEMONY_B') {
+          if (dy < currentDy) score += 15;
+        } else if (faction.id === 'AI_HEGEMONY_B') {
           const currentDx = Math.abs(cx - targetX);
-          if (dx < currentDx) {
-            score += 15; // X軸距離が縮まる移動にボーナス
-          }
+          if (dx < currentDx) score += 15;
         }
 
         if (score > bestScore) {
@@ -233,16 +229,13 @@ export function decideFactionMove(currentCell, gridMap, playerX, playerY, gridSi
       });
     }
   } else {
-    // 目的ターゲットがない場合の探索巡回（AI-Aは縦方向、AI-Bは横方向へ好んで移動）
     if (Math.random() < 0.5) {
       const emptyNeighbors = validNeighbors.filter(c => !c.occupyingFaction);
       if (emptyNeighbors.length > 0) {
         if (faction.id === 'AI_ELITE_A') {
-          // Y軸の移動を試みる
           const yDirCells = emptyNeighbors.filter(c => c.x === cx);
           bestCell = yDirCells.length > 0 ? yDirCells[Math.floor(Math.random() * yDirCells.length)] : emptyNeighbors[0];
         } else if (faction.id === 'AI_HEGEMONY_B') {
-          // X軸の移動を試みる
           const xDirCells = emptyNeighbors.filter(c => c.y === cy);
           bestCell = xDirCells.length > 0 ? xDirCells[Math.floor(Math.random() * xDirCells.length)] : emptyNeighbors[0];
         } else {
