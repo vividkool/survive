@@ -1,6 +1,7 @@
 import { FACTIONS, SoundRipple, decideFactionMove } from './faction.js';
 import { EncounterModal } from './encounterModal.js';
 import { SnipeModal } from './snipeModal.js';
+import { MODULE_TYPES, ItemBox } from './items.js';
 
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
@@ -46,6 +47,9 @@ const gameController = {
   },
   triggerScreenShake: () => {
     encounterModal.triggerScreenShake();
+  },
+  dropItemBoxOnCell: (cell) => {
+    cell.itemBox = new ItemBox(cell.x, cell.y);
   }
 };
 
@@ -75,6 +79,13 @@ const chatHistory = document.getElementById("chat-history");
 const authorizeBtn = document.getElementById("btn-authorize");
 const denyBtn = document.getElementById("btn-deny");
 const challengeBtn = document.getElementById("btn-challenge");
+
+// 📦 ItemBox UI要素
+const contaminationVal = document.getElementById("contamination-val");
+const contaminationFill = document.getElementById("contamination-fill");
+const equippedListEl = document.getElementById("equipped-list");
+const inventoryListEl = document.getElementById("inventory-list");
+const invCountEl = document.getElementById("inv-count");
 
 // AIの内部的なハルシネーションパラメータ
 let currentNoiseLevel = 5; // 現在位置のノイズ
@@ -222,11 +233,12 @@ function simulateFactionBattlesAndRipples() {
                   true
                 );
               } else {
-                // 敵AIまたはレイダーが爆破された
+                // 敵AIまたはレイダーが爆破された 📦 ItemBox をドロップ！
                 targetCell.occupyingFaction = null; // 撃滅
+                targetCell.itemBox = new ItemBox(targetCell.x, targetCell.y);
                 addMessage(
                   'HAL-9000',
-                  `【トラップ起爆成功！】座標 (${targetCell.x}, ${targetCell.y}) に設置した電磁地雷が作動！ 敵【${movingFaction.name}】を爆破・撃滅しました！`,
+                  `【トラップ起爆成功！】座標 (${targetCell.x}, ${targetCell.y}) にて敵【${movingFaction.name}】を撃滅！ 敵残骸にパーツ（📦 ItemBox）が出現。`,
                   true
                 );
               }
@@ -317,10 +329,6 @@ function startDecisionMode(tx, ty) {
   // 次回のターン選定開始時に前回の爆発音・射撃音の波状アニメーションを消去
   clearAllSoundRipples();
 
-  authorizeBtn.disabled = false;
-  denyBtn.disabled = false;
-  challengeBtn.disabled = false;
-
   const targetCell = gridMap[ty][tx];
   
   // 現在地と移動先のノイズに応じてAIハルシネーション確率を計算
@@ -331,6 +339,17 @@ function startDecisionMode(tx, ty) {
   // AIスキャン報告
   const scan = targetCell.scanReport(aiMalfunctionRate);
   addMessage('HAL-9000', `【進路スキャン報告】\n選択された進路座標: (${tx}, ${ty})\n分析プロファイル: 【${scan.reportedName}】\n「${scan.message}」\n前進を認可しますか？`, true);
+
+  // 🧭 行動決定モーダルを表示
+  const decisionOverlay = document.getElementById("decision-modal-overlay");
+  const decisionDesc = document.getElementById("decision-modal-desc");
+  if (decisionOverlay && decisionDesc) {
+    decisionDesc.innerHTML = `
+      <p style="margin-bottom: 6px; font-weight: bold; color: var(--accent-cyan);">ターゲット座標: (${tx}, ${ty}) - 【${scan.reportedName}】</p>
+      <p style="font-size: 0.8rem; color: var(--text-muted);">${scan.message.replace(/\n/g, '<br>')}</p>
+    `;
+    decisionOverlay.style.display = "flex";
+  }
 }
 
 // 移動を実行（認可された、またはそのまま進む場合）
@@ -388,11 +407,189 @@ function executeMove(tx, ty) {
   // ターン終了後の生死判定
   if (player.familyHp <= 0) {
     endGame("家族を失い、治療ステーションへの到着は叶いませんでした。");
+    return;
   } else if (player.hp <= 0) {
     endGame("プレイヤーが力尽き死亡しました。");
+    return;
+  }
+
+  // 📦 移動先マスに ItemBox（敵の遺留品）が存在する場合：回収モーダルを起動！
+  if (cell.itemBox) {
+    showItemBoxScavengeModal(cell);
+    return;
   }
 
   resumeExploration();
+}
+
+// 📦 ItemBox 遺留品・物資回収モーダル表示
+function showItemBoxScavengeModal(cell) {
+  const itemBox = cell.itemBox;
+  if (!itemBox || !itemBox.moduleItem) {
+    resumeExploration();
+    return;
+  }
+
+  const item = itemBox.moduleItem;
+  const overlay = document.getElementById("item-modal-overlay");
+  const titleEl = document.getElementById("item-modal-title");
+  const descEl = document.getElementById("item-modal-desc");
+  const actionsEl = document.getElementById("item-modal-actions");
+
+  if (!overlay || !titleEl || !descEl || !actionsEl) return;
+
+  titleEl.textContent = `${item.icon} ${item.name}`;
+
+  if (item.type === 'RESOURCE') {
+    // 🔧 修理キット・バッテリー・弾薬などの即時消費資材
+    descEl.innerHTML = `
+      <p style="margin-bottom: 6px;">${item.description}</p>
+      <p style="color: var(--accent-green); font-weight: bold;">${item.effectText}</p>
+      <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 6px;">※この資材は獲得時に即時使用・消費されます。</p>
+    `;
+
+    actionsEl.innerHTML = '';
+    const useBtn = document.createElement("button");
+    useBtn.className = "btn btn-green";
+    useBtn.textContent = `${item.icon} 拾って即時適用する (${item.name})`;
+    useBtn.onclick = () => {
+      const msg = item.useOnAcquire ? item.useOnAcquire(player) : "物資を回収しました。";
+      cell.itemBox = null;
+      overlay.style.display = "none";
+      addMessage('SYSTEM', msg);
+      updateHUD();
+      resumeExploration();
+    };
+    actionsEl.appendChild(useBtn);
+  } else {
+    // ⚙️ インベントリ保管用モジュール (スロット消費)
+    descEl.innerHTML = `
+      <p style="margin-bottom: 6px;">${item.description}</p>
+      <p style="color: #c084fc; font-weight: bold;">${item.effectText}</p>
+      <p style="color: #ff3b30; font-size: 0.78rem; margin-top: 4px;">⚠️ 【外す時の物理損耗ダメージ】: HP -${item.purgeDamage}</p>
+      <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 6px;">現在の所持品: ${player.inventory.length} / 3 枠</p>
+    `;
+
+    actionsEl.innerHTML = '';
+
+    if (player.inventory.length < 3) {
+      // 空き枠あり：回収するボタン
+      const takeBtn = document.createElement("button");
+      takeBtn.className = "btn btn-cyan";
+      takeBtn.textContent = `📦 インベントリに保管する (スロット ${player.inventory.length + 1}/3)`;
+      takeBtn.onclick = () => {
+        player.inventory.push(item);
+        cell.itemBox = null;
+        overlay.style.display = "none";
+        addMessage('SYSTEM', `【アイテム回収】${item.icon} ${item.name} をインベントリに保管しました（3枠中 ${player.inventory.length}枠）。`);
+        updateHUD();
+        resumeExploration();
+      };
+      actionsEl.appendChild(takeBtn);
+    } else {
+      // 満タン時：持ちきれない警告
+      const fullMsg = document.createElement("div");
+      fullMsg.style.color = "var(--accent-red)";
+      fullMsg.style.fontSize = "0.8rem";
+      fullMsg.textContent = "インベントリが満タン（3/3）です。組み込みまたは整理してください。";
+      actionsEl.appendChild(fullMsg);
+    }
+  }
+
+  // 残置・無視するボタン
+  const leaveBtn = document.createElement("button");
+  leaveBtn.className = "btn btn-muted";
+  leaveBtn.textContent = "残置して立ち去る";
+  leaveBtn.onclick = () => {
+    overlay.style.display = "none";
+    resumeExploration();
+  };
+  actionsEl.appendChild(leaveBtn);
+
+  overlay.style.display = "flex";
+}
+
+// 認可：AIの推薦ルートを進む
+function handleAuthorize() {
+  if (gameMode !== 'DECISION') return;
+  
+  const decisionOverlay = document.getElementById("decision-modal-overlay");
+  if (decisionOverlay) decisionOverlay.style.display = "none";
+
+  addMessage('USER', `了解した。座標: (${targetCellX}, ${targetCellY}) への前進を認可する。`);
+  const tx = targetCellX;
+  const ty = targetCellY;
+
+  setTimeout(() => {
+    executeMove(tx, ty);
+  }, 400);
+}
+
+// 却下：ルート推薦を却下し、迂回する
+function handleDeny() {
+  if (gameMode !== 'DECISION') return;
+
+  const decisionOverlay = document.getElementById("decision-modal-overlay");
+  if (decisionOverlay) decisionOverlay.style.display = "none";
+
+  addMessage('USER', `推薦を却下する。その座標への進入は回避し、別のルートを選択する。`);
+  setTimeout(() => {
+    resumeExploration();
+  }, 400);
+}
+
+// 問い詰め：スキャンの再検証を要求
+function handleChallenge() {
+  if (gameMode !== 'DECISION') return;
+
+  addMessage('USER', "HAL、本当に安全なのか？ ノイズ干渉データを再計算しろ。");
+
+  setTimeout(() => {
+    const targetCell = gridMap[targetCellY][targetCellX];
+    const isCorrupted = Math.random() < (aiMalfunctionRate / 100);
+
+    if (!isCorrupted) {
+      // 修正に成功
+      addMessage('HAL-9000', `……訂正します。電磁ノイズ干渉を除去したところ、このマスの真の性質は 【${targetCell.properties.name}】 であると判明しました。`);
+    } else {
+      // 嘘をつき続ける（ハルシネーション）
+      const defenses = [
+        "光学センサーにブレはありません。私の推論結果を速やかに実行することを推奨します。",
+        "現在の電磁障害は無視できるレベルです。なぜ私のルート選定を疑うのですか？",
+        "これ以上の検証指示はメモリリークを引き起こします。進路認可を要請します。"
+      ];
+      addMessage('HAL-9000', `【警告】${defenses[Math.floor(Math.random() * defenses.length)]}`, true);
+    }
+  }, 500);
+}
+
+// イベントリスナーの接続
+if (authorizeBtn) authorizeBtn.addEventListener("click", handleAuthorize);
+if (denyBtn) denyBtn.addEventListener("click", handleDeny);
+if (challengeBtn) challengeBtn.addEventListener("click", handleChallenge);
+
+// モーダル内のトラップ設置・待機ボタン接続
+const setTrapModalBtn = document.getElementById("btn-set-trap-modal");
+if (setTrapModalBtn) {
+  setTrapModalBtn.addEventListener("click", () => {
+    const decisionOverlay = document.getElementById("decision-modal-overlay");
+    if (decisionOverlay) decisionOverlay.style.display = "none";
+    
+    // トラップ設置
+    const setTrapBtn = document.getElementById("btn-set-trap");
+    if (setTrapBtn) setTrapBtn.click();
+    resumeExploration();
+  });
+}
+
+const holdTurnModalBtn = document.getElementById("btn-hold-turn-modal");
+if (holdTurnModalBtn) {
+  holdTurnModalBtn.addEventListener("click", () => {
+    const decisionOverlay = document.getElementById("decision-modal-overlay");
+    if (decisionOverlay) decisionOverlay.style.display = "none";
+    
+    passTurn();
+  });
 }
 
 // 移動せずにその場で潜伏・待機して1ターン消費（PASS TURN）
@@ -410,78 +607,12 @@ function passTurn() {
   resumeExploration();
 }
 
-// 敵遭遇イベント
-function triggerCombatEvent() {
-  if (player.ammo > 0) {
-    // 撃退時の消費も1発にして弾薬の価値を向上
-    player.ammo = Math.max(0, player.ammo - 1);
-    player.familyPanic = Math.min(100, player.familyPanic + 15);
-    addMessage('SYSTEM', "【警告】敵と接近遭遇！ 防御システムが実弾を1発消費し、最小限の射撃で敵を撃退しました。", true);
-  } else {
-    // 弾薬がない場合は家族と本人が被弾（致命的）
-    player.hp = Math.max(0, player.hp - 35);
-    player.familyHp = Math.max(0, player.familyHp - 30);
-    player.familyPanic = Math.min(100, player.familyPanic + 45);
-    addMessage('SYSTEM', "【緊急警告】敵ロボットに強襲されました！ 弾薬（AMMO）が空だったため、物理的な突撃を受け極めて深刻なダメージを負いました！", true);
-  }
-}
-
-// 認可：AIの推薦ルートを進む
-authorizeBtn.addEventListener("click", () => {
-  if (gameMode !== 'DECISION') return;
-  
-  addMessage('USER', `了解した。座標: (${targetCellX}, ${targetCellY}) への前進を認可する。`);
-  const tx = targetCellX;
-  const ty = targetCellY;
-
-  setTimeout(() => {
-    executeMove(tx, ty);
-  }, 800);
-});
-
-// 却下：ルート推薦を却下し、迂回する（移動をキャンセルして元の場所へ戻る）
-denyBtn.addEventListener("click", () => {
-  if (gameMode !== 'DECISION') return;
-
-  addMessage('USER', `推薦を却下する。その座標への進入は回避し、別のルートを選択する。`);
-  setTimeout(() => {
-    resumeExploration();
-  }, 600);
-});
-
-// 問い詰め：スキャンの再検証を要求
-challengeBtn.addEventListener("click", () => {
-  if (gameMode !== 'DECISION') return;
-
-  addMessage('USER', "HAL、本当に安全なのか？ ノイズ干渉データを再計算しろ。");
-
-  setTimeout(() => {
-    const targetCell = gridMap[targetCellY][targetCellX];
-    const isCorrupted = Math.random() < (aiMalfunctionRate / 100);
-
-    if (!isCorrupted) {
-      // 修正に成功
-      addMessage('HAL-9000', `……訂正します。電磁ノイズ干渉を除去したところ、このマスの真の性質は 【${targetCell.properties.name}】 であると判明しました。`);
-      // HUD用のシグナルノイズ表示も同期
-    } else {
-      // 嘘をつき続ける（ハルシネーション）
-      const defenses = [
-        "光学センサーにブレはありません。私の推論結果を速やかに実行することを推奨します。",
-        "現在の電磁障害は無視できるレベルです。なぜ私のルート選定を疑うのですか？",
-        "これ以上の検証指示はメモリリークを引き起こします。進路認可を要請します。"
-      ];
-      addMessage('HAL-9000', `【警告】${defenses[Math.floor(Math.random() * defenses.length)]}`, true);
-    }
-  }, 800);
-});
-
 function resumeExploration() {
   gameMode = 'EXPLORE';
   targetCellX = null;
   targetCellY = null;
-  authorizeBtn.disabled = true;
-  denyBtn.disabled = true;
-  challengeBtn.disabled = true;
+  const decisionOverlay = document.getElementById("decision-modal-overlay");
+  if (decisionOverlay) decisionOverlay.style.display = "none";
   updateHUD();
 }
 
@@ -518,29 +649,111 @@ function endGameWin(reason) {
 
 // HUDメーター同期
 function updateHUD() {
-  scoreElement.textContent = score;
+  if (scoreElement) scoreElement.textContent = score;
   
-  hpVal.textContent = Math.round(player.hp);
-  hpFill.style.width = `${player.hp}%`;
+  if (hpVal && hpFill) {
+    hpVal.textContent = Math.round(player.hp);
+    hpFill.style.width = `${(player.hp / player.maxHp) * 100}%`;
+  }
   
-  ammoVal.textContent = player.ammo;
-  ammoFill.style.width = `${(player.ammo / player.maxAmmo) * 100}%`;
+  if (ammoVal && ammoFill) {
+    ammoVal.textContent = player.ammo;
+    ammoFill.style.width = `${(player.ammo / player.maxAmmo) * 100}%`;
+  }
   
-  batteryVal.textContent = Math.round(player.battery);
-  batteryFill.style.width = `${player.battery}%`;
+  if (batteryVal && batteryFill) {
+    batteryVal.textContent = Math.round(player.battery);
+    batteryFill.style.width = `${player.battery}%`;
+  }
 
-  familyHpVal.textContent = Math.round(player.familyHp);
-  familyHpFill.style.width = `${player.familyHp}%`;
+  if (familyHpVal && familyHpFill) {
+    familyHpVal.textContent = Math.round(player.familyHp);
+    familyHpFill.style.width = `${player.familyHp}%`;
+  }
 
-  familyPanicVal.textContent = `${Math.round(player.familyPanic)}%`;
-  familyPanicFill.style.width = `${player.familyPanic}%`;
+  if (familyPanicVal && familyPanicFill) {
+    familyPanicVal.textContent = `${Math.round(player.familyPanic)}%`;
+    familyPanicFill.style.width = `${player.familyPanic}%`;
+  }
+
+  // 📦 バックドア汚染度 HUD
+  if (contaminationVal && contaminationFill) {
+    contaminationVal.textContent = Math.round(player.contamination);
+    contaminationFill.style.width = `${Math.min(100, player.contamination)}%`;
+  }
+
+  // 📦 装備中モジュールリストの描画
+  if (equippedListEl) {
+    equippedListEl.innerHTML = '';
+    if (player.equippedModules.length === 0) {
+      equippedListEl.innerHTML = '<div class="module-card empty-slot">装備組み込みなし</div>';
+    } else {
+      player.equippedModules.forEach((mod, idx) => {
+        const card = document.createElement("div");
+        card.className = "module-card";
+        card.innerHTML = `
+          <div class="module-info">
+            <span class="module-name">${mod.icon} ${mod.name}</span>
+            <span class="module-sub">汚染: +${mod.contamination}% / 外すダメージ: -${mod.purgeDamage}HP</span>
+          </div>
+          <button class="btn-purge">外す (ダメージ受ける)</button>
+        `;
+        // モジュール取り外し（パージ）ボタン処理
+        card.querySelector(".btn-purge").onclick = () => {
+          const res = player.purgeModule(idx);
+          if (res) {
+            addMessage('SYSTEM', `【危険なモジュール解体】${res.mod.icon} ${res.mod.name} を強制切断・パージ！ 配線破断により物理ダメージ -${res.damage} HP を負いました。`, true);
+            updateHUD();
+            if (player.hp <= 0) {
+              endGame("モジュールの強制解除時の回路破断ダメージにより力尽きました。");
+            }
+          }
+        };
+        equippedListEl.appendChild(card);
+      });
+    }
+  }
+
+  // 📦 所持インベントリ（最大3枠）リストの描画
+  if (inventoryListEl && invCountEl) {
+    invCountEl.textContent = player.inventory.length;
+    inventoryListEl.innerHTML = '';
+
+    for (let i = 0; i < 3; i++) {
+      const item = player.inventory[i];
+      const card = document.createElement("div");
+      if (item) {
+        card.className = "module-card";
+        card.innerHTML = `
+          <div class="module-info">
+            <span class="module-name">${item.icon} ${item.name}</span>
+            <span class="module-sub">汚染リスク: +${item.contamination}%</span>
+          </div>
+          <button class="btn btn-cyan" style="padding: 4px 6px; font-size: 0.65rem;">組み込み装着</button>
+        `;
+        card.querySelector("button").onclick = () => {
+          const equipped = player.equipModule(i);
+          if (equipped) {
+            addMessage('SYSTEM', `【機体組み込み完了】${equipped.icon} ${equipped.name} を装着！ バックドア汚染度が +${equipped.contamination}% 上昇しました。`, true);
+            updateHUD();
+          }
+        };
+      } else {
+        card.className = "module-card empty-slot";
+        card.textContent = `[空きスロット ${i + 1}]`;
+      }
+      inventoryListEl.appendChild(card);
+    }
+  }
   
-  if (player.familyPanic >= 75) {
-    familyPanicFill.className = "progress-bar-fill fill-red";
-  } else if (player.familyPanic >= 40) {
-    familyPanicFill.className = "progress-bar-fill fill-orange";
-  } else {
-    familyPanicFill.className = "progress-bar-fill fill-green";
+  if (familyPanicFill) {
+    if (player.familyPanic >= 75) {
+      familyPanicFill.className = "progress-bar-fill fill-red";
+    } else if (player.familyPanic >= 40) {
+      familyPanicFill.className = "progress-bar-fill fill-orange";
+    } else {
+      familyPanicFill.className = "progress-bar-fill fill-green";
+    }
   }
 }
 
@@ -568,9 +781,20 @@ function init() {
   addMessage('HAL-9000', "システムオンライン。当機（護衛AIロボット）の目標は、搬送中の重症患者を無事に(9,9)『医療施設』へ送り届けることです。患者を抱えているため大きな戦闘音や直接攻撃は危険を伴います。ハッキング、トラップ、陽動を駆使して隠密ルートを確保してください。");
   updateHUD();
   
-  // マウス・タッチ移動のリスナー追加
+    // マウス・タッチ移動 ＆ スワイプ操作のリスナー追加
   canvas.addEventListener("click", handleCanvasClick);
-  canvas.addEventListener("touchstart", handleCanvasTouch, { passive: true });
+  canvas.addEventListener("touchstart", handleTouchStart, { passive: true });
+  canvas.addEventListener("touchend", handleTouchEnd, { passive: true });
+
+  // 📱 Fixed ハンバーガーボタンのステータストグル動作
+  const hamburgerBtn = document.getElementById("fixed-hamburger-btn");
+  const hudSection = document.getElementById("hud-section");
+  if (hamburgerBtn && hudSection) {
+    hamburgerBtn.addEventListener("click", () => {
+      hamburgerBtn.classList.toggle("active");
+      hudSection.classList.toggle("drawer-open");
+    });
+  }
 
   // 1秒周期でシグナル波形揺らぎの同期
   setInterval(() => {
@@ -595,23 +819,64 @@ function handleCanvasClick(e) {
   checkAndTriggerMove(targetX, targetY);
 }
 
-// タッチ操作検知
-function handleCanvasTouch(e) {
+// 📱 スワイプ・タッチ操作変数
+let touchStartX = 0;
+let touchStartY = 0;
+let touchStartTime = 0;
+
+function handleTouchStart(e) {
   if (gameOver) return;
   if (e.touches.length === 0) return;
 
-  const rect = canvas.getBoundingClientRect();
-  const scaleX = canvas.width / rect.width;
-  const scaleY = canvas.height / rect.height;
-
   const touch = e.touches[0];
-  const touchX = (touch.clientX - rect.left) * scaleX;
-  const touchY = (touch.clientY - rect.top) * scaleY;
+  touchStartX = touch.clientX;
+  touchStartY = touch.clientY;
+  touchStartTime = Date.now();
+}
 
-  const targetX = Math.floor(touchX / cellSize);
-  const targetY = Math.floor(touchY / cellSize);
+function handleTouchEnd(e) {
+  if (gameOver) return;
+  if (e.changedTouches.length === 0) return;
 
-  checkAndTriggerMove(targetX, targetY);
+  const touch = e.changedTouches[0];
+  const deltaX = touch.clientX - touchStartX;
+  const deltaY = touch.clientY - touchStartY;
+  const duration = Date.now() - touchStartTime;
+
+  const minSwipeDistance = 30; // 最低スワイプ距離（px）
+
+  // スワイプ距離が短く時間も短い場合は単なるタップ/クリックと判定
+  if (Math.abs(deltaX) < minSwipeDistance && Math.abs(deltaY) < minSwipeDistance) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
+    const touchX = (touch.clientX - rect.left) * scaleX;
+    const touchY = (touch.clientY - rect.top) * scaleY;
+
+    const targetX = Math.floor(touchX / cellSize);
+    const targetY = Math.floor(touchY / cellSize);
+    checkAndTriggerMove(targetX, targetY);
+    return;
+  }
+
+  // スワイプ方向（フリック移動）の判定
+  let targetX = player.gridX;
+  let targetY = player.gridY;
+
+  if (Math.abs(deltaX) > Math.abs(deltaY)) {
+    // 横方向スワイプ
+    if (deltaX > 0) targetX++; // 右フリック
+    else targetX--;           // 左フリック
+  } else {
+    // 縦方向スワイプ
+    if (deltaY > 0) targetY++; // 下フリック
+    else targetY--;           // 上フリック
+  }
+
+  if (targetX >= 0 && targetX < gridSize && targetY >= 0 && targetY < gridSize) {
+    startDecisionMode(targetX, targetY);
+  }
 }
 
 // 隣接マス判定と移動トリガー
@@ -674,16 +939,29 @@ function draw() {
           const enemyCenterX = x * cellSize + cellSize / 2;
           const enemyCenterY = y * cellSize + cellSize / 2;
 
-          // 点滅アニメーション線
+          // 💻 直線主体で1回曲がるコネクタ線分（L字ルーティング）の描画
+          // 奇数・偶数や座標によってX軸先かY軸先かを決定し、屈曲点を計算
+          const useHorizontalFirst = (x + y) % 2 === 0;
+          const cornerX = useHorizontalFirst ? enemyCenterX : termCenterX;
+          const cornerY = useHorizontalFirst ? termCenterY : enemyCenterY;
+
+          // 点滅アニメーション線（直角ルーティング）
           const dashOffset = (Date.now() / 30) % 20;
           ctx.beginPath();
           ctx.moveTo(termCenterX, termCenterY);
-          ctx.lineTo(enemyCenterX, enemyCenterY);
+          ctx.lineTo(cornerX, cornerY);       // 1区画目（水平または垂直）
+          ctx.lineTo(enemyCenterX, enemyCenterY); // 2区画目（90度曲がってターゲットへ）
           ctx.strokeStyle = targetCell.occupyingFaction.color || "#00f0ff";
-          ctx.lineWidth = 1.5;
+          ctx.lineWidth = 1.8;
           ctx.setLineDash([6, 4]);
           ctx.lineDashOffset = -dashOffset;
           ctx.stroke();
+
+          // 屈曲点（コネクタノード）のグラフィック装飾
+          ctx.beginPath();
+          ctx.arc(cornerX, cornerY, 3, 0, Math.PI * 2);
+          ctx.fillStyle = targetCell.occupyingFaction.color || "#00f0ff";
+          ctx.fill();
 
           // 敵ユニット位置に照準ロックマーク
           ctx.beginPath();

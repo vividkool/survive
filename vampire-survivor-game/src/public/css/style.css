@@ -259,6 +259,68 @@ canvas {
   box-shadow: 0 0 8px rgba(255, 149, 0, 0.4);
 }
 
+.fill-purple {
+  background-color: #a855f7;
+  box-shadow: 0 0 8px rgba(168, 85, 247, 0.5);
+}
+
+/* モジュールインベントリ・装備品表示 */
+.equipped-list, .inventory-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.module-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(20, 15, 30, 0.7);
+  border: 1px solid #7e22ce;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+}
+
+.module-card.empty-slot {
+  border-style: dashed;
+  border-color: var(--border-color);
+  background: transparent;
+  color: var(--text-muted);
+  justify-content: center;
+}
+
+.module-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.module-name {
+  font-weight: bold;
+  color: #e9d5ff;
+}
+
+.module-sub {
+  font-size: 0.65rem;
+  color: #a855f7;
+}
+
+.btn-purge {
+  background: transparent;
+  border: 1px solid var(--accent-red);
+  color: var(--accent-red);
+  font-size: 0.65rem;
+  padding: 4px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.btn-purge:hover {
+  background: var(--accent-red);
+  color: #fff;
+}
+
 /* ロボット対話モジュール */
 .chat-module {
   flex: 1;
@@ -498,17 +560,17 @@ canvas {
 
 /* 移動後エンカウントモーダル UI */
 .modal-overlay {
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(5, 6, 8, 0.85);
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(5, 6, 8, 0.9);
   backdrop-filter: blur(8px);
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 20;
+  z-index: 200; /* fixed下部ログ(z-index:80)やハンバーガー(z-index:100)よりも手前に表示 */
   animation: fadeIn 0.25s ease-out;
 }
 
@@ -585,6 +647,8 @@ canvas {
 .snipe-card {
   width: 95%;
   max-width: 540px;
+  max-height: 92vh;
+  overflow-y: auto;
   background: var(--bg-secondary);
   border: 1px solid var(--accent-red);
   box-shadow: 0 0 35px rgba(255, 59, 48, 0.25);
@@ -594,7 +658,6 @@ canvas {
   flex-direction: column;
   gap: 12px;
   position: relative;
-  overflow: hidden;
 }
 
 .snipe-header {
@@ -835,6 +898,161 @@ canvas {
 @keyframes zoomInAlert {
   0% { transform: scale(0.6); opacity: 0; }
   100% { transform: scale(1); opacity: 1; }
+}
+
+/* ==========================================================================
+   モバイル・スマホレスポンシブ UI & Fixed ハンバーガーボタン
+   ========================================================================== */
+.fixed-hamburger-btn {
+  display: none;
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  width: 44px;
+  height: 44px;
+  background: rgba(18, 20, 28, 0.9);
+  border: 1px solid var(--accent-cyan);
+  border-radius: 8px;
+  z-index: 100;
+  cursor: pointer;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  box-shadow: 0 0 15px var(--glow-cyan);
+  transition: all 0.2s ease;
+}
+
+.fixed-hamburger-btn:active {
+  transform: scale(0.92);
+}
+
+.hamburger-bar {
+  width: 22px;
+  height: 2px;
+  background-color: var(--accent-cyan);
+  box-shadow: 0 0 4px var(--glow-cyan);
+  transition: all 0.3s ease;
+}
+
+.fixed-hamburger-btn.active .hamburger-bar:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+
+.fixed-hamburger-btn.active .hamburger-bar:nth-child(2) {
+  opacity: 0;
+}
+
+.fixed-hamburger-btn.active .hamburger-bar:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+/* レスポンシブ (スマホ・縦画面: 768px以下) */
+@media (max-width: 768px) {
+  body {
+    overflow: hidden;
+    height: 100vh;
+  }
+
+  .app-container {
+    flex-direction: column;
+    width: 100vw;
+    height: 100vh;
+    max-width: 100%;
+    max-height: 100%;
+    border-radius: 0;
+    border: none;
+  }
+
+  .fixed-hamburger-btn {
+    display: flex; /* スマホ画面でハンバーガーボタン表示 */
+  }
+
+  .game-section {
+    flex: 1;
+    width: 100vw;
+    height: calc(100vh - 230px); /* 下部メッセージ枠を残してゲーム画面を全開 */
+    border-right: none;
+  }
+
+  .canvas-container {
+    touch-action: none; /* ブラウザ標準のスクロール動作を防止し、カスタムスワイプを有効化 */
+  }
+
+  canvas {
+    max-width: 96vw;
+    max-height: 96vw;
+    width: auto !important;
+    height: auto !important;
+  }
+
+  /* 右側HUDセクションを画面下部メッセージ固定 ＋ ドロワー化 */
+  .hud-section {
+    width: 100vw;
+    height: 230px;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    z-index: 80;
+    background-color: rgba(18, 20, 28, 0.96);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid var(--accent-cyan);
+    box-shadow: 0 -10px 25px rgba(0, 0, 0, 0.7);
+  }
+
+  /* ドロワー（ステータス表示）はハンバーガーボタンで展開 */
+  .hud-section .hud-panel {
+    display: none; /* スマホでは普段非表示 */
+  }
+
+  .hud-section.drawer-open .hud-panel {
+    display: block;
+    animation: fadeIn 0.25s ease;
+  }
+
+  .hud-section.drawer-open {
+    height: calc(100vh - 50px);
+    top: 50px;
+    bottom: 0;
+    overflow-y: auto;
+  }
+
+  .chat-module {
+    height: 100%;
+  }
+
+  .chat-history {
+    max-height: 100px;
+    padding: 8px 12px;
+    font-size: 0.78rem;
+  }
+
+  .decision-controls {
+    padding: 8px 12px;
+    gap: 6px;
+  }
+
+  .btn {
+    padding: 8px 4px;
+    font-size: 0.7rem;
+  }
+
+  /* モーダル表示時に固定下部ログに隠れないよう全画面最前面化 & コンパクト化 */
+  .snipe-card {
+    width: 96%;
+    padding: 12px;
+    gap: 8px;
+    max-height: 94vh;
+  }
+
+  .snipe-stage {
+    height: 180px; /* スマホ画面で決定ボタンがはみ出さないようステージ高さを最適化 */
+  }
+
+  .snipe-layer {
+    height: 55px;
+    padding: 4px 8px;
+  }
 }
 
 

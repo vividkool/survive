@@ -15,6 +15,9 @@ class MapCell {
     // 設置型電磁トラップフラグ
     this.hasTrap = false;
 
+    // 📦 敵機撃破後の部品・遺留モジュール ItemBox
+    this.itemBox = null;
+
     // 定位置アクセス・ターミナルフラグ
     this.isTerminal = false;
     this.terminalKeyAcquired = false; // パスキー取得済みか
@@ -185,6 +188,20 @@ class MapCell {
       ctx.fillStyle = "#f97316";
       ctx.textAlign = "center";
       ctx.fillText("💣", centerX, centerY + 12);
+    }
+
+    // 📦 敵残骸の ItemBox 描画
+    if (this.itemBox) {
+      const centerX = screenX + cellSize / 2;
+      const centerY = screenY + cellSize / 2;
+      ctx.font = "14px monospace";
+      ctx.textAlign = "center";
+      ctx.fillText(this.itemBox.moduleItem ? this.itemBox.moduleItem.icon : "📦", centerX, centerY + (this.hasTrap ? -12 : 4));
+      
+      // アイテムボックス周りの枠
+      ctx.strokeStyle = "#a855f7";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(screenX + 4, screenY + 4, cellSize - 8, cellSize - 8);
     }
 
     // 💻 定位置アクセス・ターミナルの描画

@@ -106,12 +106,31 @@
             </div>
           </div>
 
+          <!-- 📦 ItemBox 遺留モジュール回収モーダル -->
+          <div id="item-modal-overlay" class="modal-overlay" style="display: none;">
+            <div class="encounter-card" style="border-color: #a855f7; box-shadow: 0 0 30px rgba(168, 85, 247, 0.3);">
+              <div class="encounter-header">
+                <div class="encounter-badge" style="color: #c084fc;">📦 SCAVENGE ITEM BOX</div>
+                <div id="item-modal-title" class="encounter-title">敵の残骸からパーツを発見</div>
+              </div>
+              <div id="item-modal-desc" class="encounter-desc"></div>
+              <div id="item-modal-actions" class="encounter-actions"></div>
+            </div>
+          </div>
+
           <canvas id="gameCanvas" width="600" height="600"></canvas>
         </div>
       </section>
 
       <!-- 右側：AI HUD & コグニティブ対話モジュール -->
-      <section class="hud-section">
+      <!-- 固定ハンバーガーボタン（スマホ・レスポンシブ用） -->
+      <button id="fixed-hamburger-btn" class="fixed-hamburger-btn" aria-label="Toggle Status Drawer">
+        <span class="hamburger-bar"></span>
+        <span class="hamburger-bar"></span>
+        <span class="hamburger-bar"></span>
+      </button>
+
+      <section id="hud-section" class="hud-section">
         <!-- 主人公チーム（AIロボット & 重症患者）のサバイバルステータス -->
         <div class="hud-panel integrity-drawer">
           <input type="checkbox" id="drawer-toggle" class="drawer-toggle" />
@@ -150,62 +169,80 @@
         <div class="hud-panel">
           <div class="hud-panel-title">PATIENT VITAL (搬送中・重症患者の生命維持)</div>
           <div class="status-grid">
-            <div class="status-card">
+            <div class="status-card" style="grid-column: span 2;">
               <div class="status-label">PATIENT VITAL (患者の生命力)</div>
               <div class="status-value"><span id="family-hp-val">90</span> / 100</div>
               <div class="progress-bar-bg">
                 <div id="family-hp-fill" class="progress-bar-fill fill-green" style="width: 90%;"></div>
               </div>
             </div>
-            <div class="status-card">
-              <div class="status-label">DETECTION RISK (戦闘音・索敵被検知度)</div>
-              <div class="status-value"><span id="family-panic-val">10%</span></div>
-              <div class="progress-bar-bg">
-                <div id="family-panic-fill" class="progress-bar-fill fill-green" style="width: 10%;"></div>
-              </div>
-            </div>
           </div>
         </div>
 
-        <!-- AIロボットコグニティブステータス（データ数値を隠蔽し、精神波ノイズでブラックボックス化） -->
+        <!-- 📦 モジュール装備 ＆ バックドア汚染ステータス -->
         <div class="hud-panel">
-          <div class="hud-panel-title">AI SIGNAL & COGNITION (AI認知シグナル)</div>
+          <div class="hud-panel-title">EQUIPPED MODULES & BACKDOOR (装備品 ＆ 汚染)</div>
           <div class="status-grid">
             <div class="status-card ai-status-card">
-              <div class="status-label">SIGNAL STATE (通信電波状況 / 精神波ノイズ)</div>
-              <div class="wave-container">
-                <div class="wave-bar"></div>
-                <div class="wave-bar"></div>
-                <div class="wave-bar"></div>
-                <div class="wave-bar"></div>
-                <div class="wave-bar"></div>
-                <div class="wave-bar"></div>
-                <div class="wave-bar"></div>
+              <div class="status-label">BACKDOOR CONTAMINATION (汚染度)</div>
+              <div class="status-value" style="color: #c084fc;"><span id="contamination-val">0</span>%</div>
+              <div class="progress-bar-bg">
+                <div id="contamination-fill" class="progress-bar-fill fill-purple" style="width: 0%;"></div>
               </div>
+            </div>
+          </div>
+          <!-- 装備品スロット一覧 -->
+          <div id="equipped-list" class="equipped-list">
+            <!-- JSで動的に表示 -->
+          </div>
+          <!-- 所持品インベントリ（最大3枠） -->
+          <div class="inventory-section">
+            <div class="status-label" style="margin-top: 8px;">INVENTORY SLOTS (<span id="inv-count">0</span> / 3)</div>
+            <div id="inventory-list" class="inventory-list">
+              <!-- JSで動的に表示 -->
             </div>
           </div>
         </div>
 
-        <!-- ロボットとの対話ログ -->
+        <!-- ロボットとの対話ログ (非選択時は広々表示) -->
         <div class="chat-module">
           <div class="hud-panel-title" style="padding: 15px 20px 0 20px; margin-bottom: 0;">TACTICAL LOG / COMMS (戦術ログ)</div>
-          <div id="chat-history" class="chat-history">
+          <div id="chat-history" class="chat-history" style="flex: 1; max-height: none;">
             <!-- 動的にメッセージが挿入されます -->
           </div>
           
-          <!-- 認可決定ボタンパネル -->
-          <div class="decision-controls">
-            <div class="action-row">
-              <button id="btn-challenge" class="btn btn-cyan" disabled>問い詰める (再検証要求)</button>
-              <button id="btn-set-trap" class="btn btn-orange">💣 現在地にトラップ設置 (バッテリー: -15%)</button>
-            </div>
-            <div class="action-row">
-              <button id="btn-authorize" class="btn btn-red" disabled>前進を認可する (AUTHORIZE MOVE)</button>
-              <button id="btn-deny" class="btn btn-green" disabled>ルート却下・迂回 (HOLD & ROUTE BYPASS)</button>
-              <button id="btn-hold-turn" class="btn btn-muted">🛑 その場で待機する (PASS TURN)</button>
-            </div>
+          <!-- 常時表示する待機・トラップ簡易ボタン -->
+          <div class="default-action-bar" style="padding: 10px 20px; display: flex; gap: 8px; background: rgba(10,11,13,0.6); border-top: 1px solid var(--border-color);">
+            <button id="btn-set-trap" class="btn btn-orange" style="flex: 1;">💣 トラップ設置 (-15% Battery)</button>
+            <button id="btn-hold-turn" class="btn btn-muted" style="flex: 1;">🛑 1ターン待機 (PASS)</button>
           </div>
         </div>
+      </section>
+    </div>
+
+    <!-- 🧭 行動決定モーダル (認可・却下・問い詰め・トラップ・待機選択時に表示) -->
+    <div id="decision-modal-overlay" class="modal-overlay" style="display: none;">
+      <div class="encounter-card" style="border-color: var(--accent-cyan); box-shadow: 0 0 35px rgba(0, 240, 255, 0.3);">
+        <div class="encounter-header">
+          <div class="encounter-badge" style="color: var(--accent-cyan);">🧭 TACTICAL DECISION (進路認可・行動選択)</div>
+          <div id="decision-modal-title" class="encounter-title">進路選択の認可要請</div>
+        </div>
+        <div id="decision-modal-desc" class="encounter-desc"></div>
+        <div class="decision-controls" style="background: transparent; border: none; padding: 0;">
+          <div class="action-row" style="margin-bottom: 8px;">
+            <button id="btn-challenge" class="btn btn-cyan">問い詰める (再検証要求)</button>
+            <button id="btn-set-trap-modal" class="btn btn-orange">💣 トラップ設置 (-15%)</button>
+          </div>
+          <div class="action-row" style="margin-bottom: 8px;">
+            <button id="btn-authorize" class="btn btn-red">前進を認可する (AUTHORIZE MOVE)</button>
+            <button id="btn-deny" class="btn btn-green">ルート却下・迂回 (BYPASS)</button>
+          </div>
+          <div class="action-row">
+            <button id="btn-hold-turn-modal" class="btn btn-muted">🛑 その場で待機する (PASS TURN)</button>
+          </div>
+        </div>
+      </div>
+    </div>
       </section>
     </div>
 
