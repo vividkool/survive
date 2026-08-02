@@ -41,5 +41,3 @@ python tools/image_processor.py --input ./raw_images --prefix layer2_mid_ --widt
 
 ---
 
-## GitHub プッシュ完了
-本日の変更およびツール作成内容をステージング・コミットし、`origin/main` に正常に Push 完了いたしました。

@@ -164,7 +164,7 @@ def main():
         description="survive スナイプ視点用 画像自動切り抜き＆サイズ統一 WebP 変換ツール"
     )
     parser.add_argument("--input", "-i", default="./raw_images", help="入力画像ディレクトリ (デフォルト: ./raw_images)")
-    parser.add_argument("--output", "-o", default="../vampire-survivor-game/public/images/snipe", help="出力ディレクトリ")
+    parser.add_argument("--output", "-o", default="./vampire-survivor-game/public/images/snipe", help="出力ディレクトリ")
     parser.add_argument("--model", "-m", default="u2netp", choices=["u2netp", "u2net", "u2net_human_seg"], help="rembg AIモデル (デフォルト: u2netp 高速版)")
     parser.add_argument("--width", "-W", type=int, default=1920, help="統一する幅 (px)")
     parser.add_argument("--height", "-H", type=int, default=1080, help="統一する高さ (px)")
