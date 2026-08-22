@@ -10,8 +10,10 @@ import os
 import sys
 import argparse
 from pathlib import Path
+from typing import Optional, Tuple, List
 import numpy as np
 from PIL import Image
+
 
 try:
     from rembg import remove, new_session
@@ -56,6 +58,167 @@ def crop_bounding_box(pil_img: Image.Image, margin: int = 0) -> Image.Image:
 
     cropped_np = img_np[y_min:y_max, x_min:x_max]
     return Image.fromarray(cropped_np)
+
+
+def remove_color_key(
+    pil_img: Image.Image,
+    target_r: int,
+    target_g: int,
+    target_b: int,
+    tolerance: int = 30,
+    feather: int = 0,
+    contiguous_only: bool = True,
+    seed_x: Optional[int] = None,
+    seed_y: Optional[int] = None,
+    edge_aware: bool = True
+) -> Image.Image:
+    """
+    指定したRGB色とその近似色を透明化します。
+    - contiguous_only = True: クリックした地点と連続している（隣接する）同色領域のみを境界線（エッジ）まで透過（被写体内部の色飛びを防止）
+    - edge_aware = True: OpenCV Cannyエッジ検出を併用し、被写体の輪郭・境界線を越えて透明化が侵入するのを防ぐ
+    - contiguous_only = False: 画像全体から指定色を透過
+    """
+    img_np = np.array(pil_img.convert("RGBA"))
+    h, w = img_np.shape[:2]
+
+    # 1. 連続領域のみ（クリック地点からの FloodFill / 境界線判定）
+    if contiguous_only and cv2 is not None and seed_x is not None and seed_y is not None:
+        # 範囲チェック
+        sx = max(0, min(w - 1, seed_x))
+        sy = max(0, min(h - 1, seed_y))
+
+        # RGB 3チャンネルで作業
+        bgr = cv2.cvtColor(img_np[:, :, :3], cv2.COLOR_RGB2BGR)
+
+        # FloodFill 用マスク (h+2, w+2)
+        ff_mask = np.zeros((h + 2, w + 2), np.uint8)
+        
+        # エッジ検出による境界壁の作成（オプション）
+        if edge_aware:
+            gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
+            edges = cv2.Canny(gray, 50, 150)
+            # エッジ部分をマスク壁(1)として設定
+            ff_mask[1:h+1, 1:w+1] = np.where(edges > 0, 1, 0).astype(np.uint8)
+
+        # クリック位置から同一色領域を探索して塗りつぶし
+        tol = int(tolerance)
+        flags = 4 | (255 << 8) | cv2.FLOODFILL_MASK_ONLY | cv2.FLOODFILL_FIXED_RANGE
+        cv2.floodFill(
+            bgr,
+            ff_mask,
+            (sx, sy),
+            (0, 0, 0),
+            (tol, tol, tol),
+            (tol, tol, tol),
+            flags
+        )
+
+        # マスク抽出 (1:h+1, 1:w+1 のうち 255 のピクセルが透明化対象)
+        mask_transparent = (ff_mask[1:h+1, 1:w+1] == 255)
+
+    else:
+        # 全体の一致色を透明化
+        r, g, b = img_np[:, :, 0], img_np[:, :, 1], img_np[:, :, 2]
+        diff_r = np.abs(r.astype(int) - target_r)
+        diff_g = np.abs(g.astype(int) - target_g)
+        diff_b = np.abs(b.astype(int) - target_b)
+        dist = np.sqrt(diff_r**2 + diff_g**2 + diff_b**2)
+        mask_transparent = dist <= tolerance
+
+    if feather > 0 and cv2 is not None:
+        mask_u8 = (mask_transparent.astype(np.uint8)) * 255
+        inv_mask = cv2.bitwise_not(mask_u8)
+        blurred_mask = cv2.GaussianBlur(inv_mask, (feather * 2 + 1, feather * 2 + 1), 0)
+        img_np[:, :, 3] = np.minimum(img_np[:, :, 3], blurred_mask)
+    else:
+        img_np[mask_transparent, 3] = 0
+
+    return Image.fromarray(img_np)
+
+
+def apply_magic_eraser(
+    pil_img: Image.Image,
+    mask_img: Optional[Image.Image] = None,
+    mode: str = "inpaint",
+    inpaint_radius: int = 5
+) -> Image.Image:
+    """
+    消しゴムマジック機能:
+    - mode = 'inpaint': マスクで指定された人物や不要物を、周囲の背景テクスチャで違和感なく塗りつぶして消去 (OpenCV Telea / Navier-Stokes Inpainting)
+    - mode = 'ai_subject': ブラシやAIで人物・被写体のエッジを認識し、その物体だけを背景から正確に透明化（くり抜き）
+    """
+    src_rgba = pil_img.convert("RGBA")
+    src_np = np.array(src_rgba)
+    h, w = src_np.shape[:2]
+
+    # マスク画像がある場合
+    if mask_img is not None:
+        mask_rgba = mask_img.convert("RGBA").resize((w, h), Image.Resampling.NEAREST)
+        mask_np = np.array(mask_rgba)
+        # 白(255)で塗られた部分または赤ブラシ部分をマスク(255)に
+        binary_mask = np.where((mask_np[:, :, 0] > 100) & (mask_np[:, :, 3] > 30), 255, 0).astype(np.uint8)
+    else:
+        # マスクが無い場合はAIで被写体を検出
+        if remove is not None:
+            ai_cut = remove(src_rgba)
+            ai_alpha = np.array(ai_cut)[:, :, 3]
+            binary_mask = np.where(ai_alpha > 50, 255, 0).astype(np.uint8)
+        else:
+            return pil_img
+
+    if mode == "inpaint" and cv2 is not None:
+        # BGRカラーで背景補完 (cv2.inpaint)
+        bgr = cv2.cvtColor(src_np[:, :, :3], cv2.COLOR_RGB2BGR)
+        # INPAINT_TELEA アルゴリズムで自然に修復
+        inpainted_bgr = cv2.inpaint(bgr, binary_mask, inpaint_radius, cv2.INPAINT_TELEA)
+        inpainted_rgb = cv2.cvtColor(inpainted_bgr, cv2.COLOR_BGR2RGB)
+        
+        # アルファチャンネルは維持（元の不透明度）
+        result_np = np.dstack((inpainted_rgb, src_np[:, :, 3]))
+        return Image.fromarray(result_np)
+    
+    elif mode == "transparent":
+        # マスク部分を透明化
+        src_np[binary_mask == 255, 3] = 0
+        return Image.fromarray(src_np)
+
+    return pil_img
+
+
+def flip_image(pil_img: Image.Image, direction: str = "horizontal") -> Image.Image:
+    """
+    画像の反転処理 (direction: 'horizontal' 左右反転, 'vertical' 上下反転)
+    """
+    if direction == "horizontal":
+        return pil_img.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+    elif direction == "vertical":
+        return pil_img.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
+    return pil_img
+
+
+
+
+def apply_mask_transparency(pil_img: Image.Image, mask_img: Image.Image) -> Image.Image:
+    """
+    ユーザーが描画したマスク画像（白色＝透過対象）を使って透明化します。
+    塗った部分（白ピクセル）のアルファ値のみを 0 に設定します。
+    """
+    src_rgba = pil_img.convert("RGBA")
+    mask_rgba = mask_img.convert("RGBA").resize(src_rgba.size, Image.Resampling.NEAREST)
+    
+    src_np = np.array(src_rgba)
+    mask_np = np.array(mask_rgba)
+    
+    # mask_npの赤チャンネルまたは不透明度または輝度をチェック
+    # mask_data は白(255,255,255)で塗られた部分が消去対象
+    erase_mask = (mask_np[:, :, 0] > 128) & (mask_np[:, :, 3] > 50)
+    
+    # 該当ピクセルのアルファ（透明度）を0に
+    src_np[erase_mask, 3] = 0
+    
+    return Image.fromarray(src_np)
+
+
 
 
 def resize_and_pad(pil_img: Image.Image, target_width: int, target_height: int, fit_mode: str = "contain") -> Image.Image:

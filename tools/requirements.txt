@@ -2,3 +2,7 @@ rembg>=2.0.0
 pillow>=9.0.0
 opencv-python>=4.5.0
 onnxruntime>=1.10.0
+fastapi>=0.100.0
+uvicorn>=0.22.0
+python-multipart>=0.0.6
+

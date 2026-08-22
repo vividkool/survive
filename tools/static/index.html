@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Survive - WebP Studio</title>
+  <style>
+    :root {
+      --primary: #0284c7;
+      --primary-hover: #0369a1;
+      --secondary: #4f46e5;
+      --success: #16a34a;
+      --danger: #dc2626;
+      --warning: #d97706;
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --card-border: #334155;
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --radius: 12px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: rgba(30, 41, 59, 0.9);
+      border-bottom: 1px solid var(--card-border);
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: #38bdf8;
+    }
+    .badge {
+      background: rgba(6, 182, 212, 0.2);
+      color: #38bdf8;
+      border: 1px solid #0891b2;
+      padding: 0.2rem 0.6rem;
+      font-size: 0.75rem;
+      border-radius: 9999px;
+      font-weight: 600;
+    }
+    main {
+      flex: 1;
+      max-width: 1440px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 2rem;
+      display: grid;
+      grid-template-columns: 400px 1fr;
+      gap: 2rem;
+    }
+    @media (max-width: 1024px) { main { grid-template-columns: 1fr; } }
+    .panel {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+    .section-box {
+      background: rgba(15, 23, 42, 0.5);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 1.2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .section-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #38bdf8;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .section-tag {
+      font-size: 0.7rem;
+      background: #334155;
+      color: #cbd5e1;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+    }
+    .form-group { display: flex; flex-direction: column; gap: 0.4rem; }
+    label { font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); }
+    input[type="text"], input[type="number"], select {
+      background: #0f172a; border: 1px solid var(--card-border); color: var(--text-primary);
+      padding: 0.6rem 0.8rem; border-radius: 8px; font-size: 0.9rem; outline: none;
+    }
+    input:focus, select:focus { border-color: var(--primary); }
+    .range-group { display: flex; align-items: center; gap: 1rem; }
+    .range-group input[type="range"] { flex: 1; }
+    .range-val { font-size: 0.85rem; color: #38bdf8; min-width: 45px; text-align: right; font-family: monospace; }
+    .tabs-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+    .tab-btn {
+      background: #0f172a; border: 1px solid var(--card-border); color: var(--text-secondary);
+      padding: 0.6rem; border-radius: 8px; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; gap: 0.2rem;
+    }
+    .tab-btn:hover { border-color: #64748b; color: var(--text-primary); }
+    .tab-btn.active { background: rgba(2, 132, 199, 0.15); border-color: #38bdf8; color: #38bdf8; }
+    
+    .btn {
+      background: var(--primary); color: white; border: none; border-radius: 8px;
+      padding: 0.65rem 1rem; font-weight: 700; font-size: 0.9rem; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+      transition: all 0.15s;
+    }
+    .btn:hover { background: var(--primary-hover); }
+    .btn-secondary { background: #334155; color: var(--text-primary); }
+    .btn-secondary:hover { background: #475569; }
+    .btn-success { background: var(--success); }
+    .btn-success:hover { background: #15803d; }
+    .btn-action {
+      background: #0284c7;
+      color: #ffffff;
+      padding: 0.55rem 0.85rem;
+      font-size: 0.85rem;
+      border-radius: 6px;
+      border: 1px solid #38bdf8;
+    }
+    .btn-action:hover {
+      background: #0369a1;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.3);
+    }
+
+    .drop-zone {
+      border: 2px dashed var(--card-border); background: rgba(15, 23, 42, 0.6);
+      border-radius: var(--radius); padding: 1.5rem 1rem; text-align: center; cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; gap: 0.4rem;
+    }
+    .drop-zone:hover, .drop-zone.drag-over { border-color: #38bdf8; background: rgba(56, 189, 248, 0.05); }
+    .drop-icon { font-size: 2rem; }
+    .workspace {
+      background: var(--card-bg); border: 1px solid var(--card-border);
+      border-radius: var(--radius); padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem;
+    }
+    .canvas-container {
+      position: relative;
+      background: repeating-conic-gradient(#1e293b 0% 25%, #0f172a 0% 50%) 50% / 20px 20px;
+      border: 1px solid var(--card-border); border-radius: 8px; min-height: 520px; max-height: 680px;
+      display: flex; align-items: center; justify-content: center; overflow: auto;
+    }
+    canvas { max-width: 100%; max-height: 100%; display: block; }
+    .color-swatch { width: 28px; height: 28px; border-radius: 6px; border: 2px solid #fff; display: inline-block; }
+    .info-bar {
+      display: flex; justify-content: space-between; align-items: center; background: #0f172a;
+      padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid var(--card-border); font-size: 0.85rem;
+    }
+    .checkbox-label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; user-select: none; font-size: 0.85rem; }
+    .loading-overlay {
+      position: absolute; inset: 0; background: rgba(15, 23, 42, 0.8);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem;
+      border-radius: 8px; z-index: 20;
+    }
+    .spinner {
+      width: 44px; height: 44px; border: 4px solid rgba(56, 189, 248, 0.2);
+      border-top-color: #38bdf8; border-radius: 50%; animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    footer {
+      text-align: center; padding: 1.25rem; color: var(--text-secondary); font-size: 0.8rem;
+      border-top: 1px solid var(--card-border); margin-top: auto;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">
+      <span>🎯 Survive WebP Studio</span>
+      <span class="badge">Professional Editor V2</span>
+    </div>
+    <div style="display:flex; gap:1rem; align-items:center;">
+      <span style="font-size:0.85rem; color:var(--text-secondary);">Snipe View Layer Processing Tool</span>
+    </div>
+  </header>
+  <main>
+    <!-- Left: Operations & Itemized Processing Controls -->
+    <div class="panel">
+      <!-- 1. Upload Section -->
+      <div class="section-box">
+        <div class="section-title">
+          <span>📁 1. 画像アップロード</span>
+          <span class="section-tag">Input</span>
+        </div>
+        <div class="drop-zone" id="dropZone">
+          <div class="drop-icon">📤</div>
+          <div style="font-size:0.85rem; font-weight:600;">クリックまたはファイルをドロップ</div>
+          <div style="font-size:0.75rem; color:var(--text-secondary);">PNG, JPG, JPEG, BMP, WEBP 対応</div>
+          <input type="file" id="fileInput" accept="image/*" style="display:none;">
+        </div>
+      </div>
+
+      <!-- 2. Transparency Processing Section -->
+      <div class="section-box">
+        <div class="section-title">
+          <span>✂️ 2. 透過処理 (単体実行可能)</span>
+          <span class="section-tag">Transparency</span>
+        </div>
+        <div class="tabs-grid">
+          <button class="tab-btn active" data-mode="none">
+            <span>🚫 なし</span>
+          </button>
+          <button class="tab-btn" data-mode="ai">
+            <span>🤖 AI自動切り抜き</span>
+          </button>
+          <button class="tab-btn" data-mode="color_key">
+            <span>🎯 スポイト色抜き</span>
+          </button>
+          <button class="tab-btn" data-mode="mask">
+            <span>🖌️ ブラシ消しゴム</span>
+          </button>
+        </div>
+
+        <div id="colorKeyOptions" style="display:none; flex-direction:column; gap:0.6rem; background:#0f172a; padding:0.8rem; border-radius:8px;">
+          <label>指定カラー (画像上をクリック):</label>
+          <div style="display:flex; align-items:center; gap:0.6rem;">
+            <div id="colorSwatch" class="color-swatch" style="background:#ffffff;"></div>
+            <input type="text" id="hexColorInput" value="#ffffff" style="width:90px; font-family:monospace;">
+            <span style="font-size:0.75rem; color:var(--text-secondary);">クリックで色採取</span>
+          </div>
+
+          <div class="form-group" style="background:rgba(2,132,199,0.1); padding:0.5rem; border-radius:6px; border:1px solid #0284c7;">
+            <label class="checkbox-label" style="color:#38bdf8; font-weight:700;">
+              <input type="checkbox" id="contiguousOnly" checked>
+              <span>🌊 クリックした連続領域のみ（被写体内部を残す）</span>
+            </label>
+            <label class="checkbox-label" style="color:#7dd3fc; margin-top:0.3rem;">
+              <input type="checkbox" id="edgeAware" checked>
+              <span>🔍 輪郭・エッジ検出（境界線でストップ）</span>
+            </label>
+          </div>
+
+          <div class="form-group">
+            <div style="display:flex; justify-content:space-between;">
+              <label>色の許容度 (Tolerance):</label>
+              <span class="range-val" id="toleranceVal">35</span>
+            </div>
+            <div class="range-group">
+              <input type="range" id="toleranceRange" min="1" max="150" value="35">
+            </div>
+          </div>
+          <div class="form-group">
+            <div style="display:flex; justify-content:space-between;">
+              <label>境界ぼかし (Feather):</label>
+              <span class="range-val" id="featherVal">0px</span>
+            </div>
+            <div class="range-group">
+              <input type="range" id="featherRange" min="0" max="10" value="0">
+            </div>
+          </div>
+        </div>
+
+
+        <div id="maskOptions" style="display:none; flex-direction:column; gap:0.6rem; background:#0f172a; padding:0.8rem; border-radius:8px;">
+          <label>ブラシサイズ:</label>
+          <div class="range-group">
+            <input type="range" id="brushSize" min="5" max="100" value="30">
+            <span class="range-val" id="brushSizeVal">30px</span>
+          </div>
+          
+          <div style="display:flex; gap:0.5rem; margin-top:0.2rem;">
+            <button class="btn btn-action" id="magicEraserBtn" style="background:#7c3aed; border-color:#a78bfa; flex:1;" title="赤く塗った人物・不要物を周囲の背景で自然に補完して消去">
+              🪄 消しゴムマジック (背景補完)
+            </button>
+            <button class="btn btn-secondary" id="clearMaskBtn" style="padding:0.35rem 0.6rem; font-size:0.75rem;">
+              🧹 リセット
+            </button>
+          </div>
+          <span style="font-size:0.7rem; color:#c4b5fd;">※ 赤く塗った人物や障害物をAI・画像補完（Inpaint）で周囲の景色になじませて消去します</span>
+        </div>
+
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="cropBounds" checked>
+            <span>被写体バウンディングボックスで余白自動トリミング</span>
+          </label>
+        </div>
+
+        <button class="btn btn-action" id="applyTransBtn">
+          ✂️ この透過処理を適用する
+        </button>
+
+      </div>
+
+      <!-- 3. Size Conversion Section -->
+      <div class="section-box">
+        <div class="section-title">
+          <span>📐 3. サイズ変換・リサイズ</span>
+          <span class="section-tag">Resize</span>
+        </div>
+
+        <!-- Survive & CatChat Quick Presets -->
+        <div class="form-group">
+          <label style="font-size:0.75rem; color:#38bdf8;">🎯 Survive プリセット選択:</label>
+          <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:0.4rem;">
+            <button type="button" class="btn btn-secondary preset-btn" data-w="1000" data-h="480" data-fit="cover" style="padding:0.35rem 0.2rem; font-size:0.75rem;">
+              全景 (1000x480)
+            </button>
+            <button type="button" class="btn btn-secondary preset-btn" data-w="1000" data-h="180" data-fit="contain" style="padding:0.35rem 0.2rem; font-size:0.75rem;">
+              レイヤー (1000x180)
+            </button>
+            <button type="button" class="btn btn-secondary preset-btn" data-w="256" data-h="256" data-fit="contain" style="padding:0.35rem 0.2rem; font-size:0.75rem;">
+              アイコン (256x256)
+            </button>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.6rem;">
+          <div class="form-group">
+            <label>幅 (Width):</label>
+            <input type="number" id="outWidth" value="1000" step="10">
+          </div>
+          <div class="form-group">
+            <label>高さ (Height):</label>
+            <input type="number" id="outHeight" value="480" step="10">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>フィット方式 (Fit Mode):</label>
+          <select id="fitMode">
+            <option value="cover" selected>Cover (枠全体・中央クロップ)</option>
+            <option value="contain">Contain (アスペクト維持・透明余白)</option>
+            <option value="stretch">Stretch (指定サイズへ変形)</option>
+            <option value="none">None (リサイズなし)</option>
+          </select>
+        </div>
+
+        <button class="btn btn-action" id="applyResizeBtn">
+          📐 このリサイズを適用する
+        </button>
+      </div>
+
+
+      <!-- 4. WebP Export & Direct Save Section -->
+      <div class="section-box">
+        <div class="section-title">
+          <span>💾 4. WebP出力 & 保存</span>
+          <span class="section-tag">Export</span>
+        </div>
+        <div class="form-group">
+          <div style="display:flex; justify-content:space-between;">
+            <label>WebP 品質 (Quality):</label>
+            <span class="range-val" id="qualityVal">80%</span>
+          </div>
+          <div class="range-group">
+            <input type="range" id="qualityRange" min="10" max="100" value="80">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>出力ファイル名:</label>
+          <input type="text" id="outFilename" placeholder="layer_snipe_01.webp">
+        </div>
+
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="saveToGame" checked>
+            <span>🎮 ゲームフォルダに直接保存 (snipe/)</span>
+          </label>
+        </div>
+
+        <div style="display:flex; gap:0.5rem;">
+          <button class="btn btn-success" id="exportWebpBtn" style="flex:1;">
+            💾 現在の状態でWebP保存
+          </button>
+        </div>
+      </div>
+
+      <!-- Full Pipeline Master Button -->
+      <button class="btn" id="processAllBtn" style="background:#4f46e5; padding:0.9rem; font-size:0.95rem;">
+        ⚡ [全項目一括] 透過＋リサイズ＋WebP保存を実行
+      </button>
+    </div>
+
+    <!-- Right: Interactive Canvas Workspace & History Controls -->
+    <div class="workspace">
+      <div class="info-bar">
+        <div id="imageInfoText">画像が読み込まれていません</div>
+        <div style="display:flex; gap:0.4rem; align-items:center; flex-wrap:wrap;">
+          <button class="btn btn-secondary" id="flipHBtn" style="padding:0.35rem 0.65rem; font-size:0.8rem;" title="画像を左右反転">
+            ↔️ 左右反転
+          </button>
+          <button class="btn btn-secondary" id="flipVBtn" style="padding:0.35rem 0.65rem; font-size:0.8rem;" title="画像を上下反転">
+            ↕️ 上下反転
+          </button>
+          <button class="btn btn-secondary" id="undoBtn" style="padding:0.35rem 0.65rem; font-size:0.8rem;" title="1つ前の状態に戻す">
+            ↩️ 元に戻す
+          </button>
+          <button class="btn btn-secondary" id="resetOriginalBtn" style="padding:0.35rem 0.65rem; font-size:0.8rem;" title="最初の画像に完全リセット">
+            🔄 初期状態
+          </button>
+        </div>
+      </div>
+
+
+      <div id="actionHint" style="font-size:0.85rem; color:#38bdf8; font-weight:600; min-height:1.2rem;"></div>
+
+      <div class="canvas-container" id="canvasContainer">
+        <div id="emptyState" style="color:var(--text-secondary); text-align:center;">
+          左側のパネルから画像をアップロードしてください
+        </div>
+        <canvas id="mainCanvas" style="display:none;"></canvas>
+        <canvas id="maskCanvas" style="position:absolute; pointer-events:none; display:none;"></canvas>
+        <div id="loadingOverlay" class="loading-overlay" style="display:none;">
+          <div class="spinner"></div>
+          <div style="font-weight:700; color:#38bdf8;" id="loadingText">画像を処理中...</div>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap;">
+        <div id="resultStats" style="font-size:0.85rem; color:var(--text-secondary);"></div>
+        <div style="display:flex; gap:0.75rem;">
+          <a class="btn" id="downloadBtn" style="display:none; text-decoration:none;" download="output.webp">
+            📥 WebP をダウンロード
+          </a>
+        </div>
+      </div>
+    </div>
+  </main>
+  <footer>
+    &copy; 2026 From Zero Ecosystem | survive Sniper Layer WebP Studio
+  </footer>
+
+  <script>
+    // State & History
+    let currentMode = "none";
+    let originalImage = null;
+    let currentBase64Image = null;
+    let historyStack = [];
+    let selectedColor = "#ffffff";
+    let isDrawing = false;
+
+    // Elements
+    const fileInput = document.getElementById("fileInput");
+    const dropZone = document.getElementById("dropZone");
+    const mainCanvas = document.getElementById("mainCanvas");
+    const maskCanvas = document.getElementById("maskCanvas");
+    const mainCtx = mainCanvas.getContext("2d");
+    const maskCtx = maskCanvas.getContext("2d");
+    const emptyState = document.getElementById("emptyState");
+    const loadingOverlay = document.getElementById("loadingOverlay");
+    const loadingText = document.getElementById("loadingText");
+    const actionHint = document.getElementById("actionHint");
+    const imageInfoText = document.getElementById("imageInfoText");
+    const resultStats = document.getElementById("resultStats");
+    const downloadBtn = document.getElementById("downloadBtn");
+    const undoBtn = document.getElementById("undoBtn");
+    const resetOriginalBtn = document.getElementById("resetOriginalBtn");
+
+    const colorKeyOptions = document.getElementById("colorKeyOptions");
+    const maskOptions = document.getElementById("maskOptions");
+    const colorSwatch = document.getElementById("colorSwatch");
+    const hexColorInput = document.getElementById("hexColorInput");
+    const toleranceRange = document.getElementById("toleranceRange");
+    const toleranceVal = document.getElementById("toleranceVal");
+    const featherRange = document.getElementById("featherRange");
+    const featherVal = document.getElementById("featherVal");
+    const brushSize = document.getElementById("brushSize");
+    const brushSizeVal = document.getElementById("brushSizeVal");
+    const qualityRange = document.getElementById("qualityRange");
+    const qualityVal = document.getElementById("qualityVal");
+
+    // Action Buttons
+    const applyTransBtn = document.getElementById("applyTransBtn");
+    const applyResizeBtn = document.getElementById("applyResizeBtn");
+    const exportWebpBtn = document.getElementById("exportWebpBtn");
+    const processAllBtn = document.getElementById("processAllBtn");
+
+    // Sync Slider Labels
+    toleranceRange.oninput = (e) => toleranceVal.textContent = e.target.value;
+    featherRange.oninput = (e) => featherVal.textContent = e.target.value + "px";
+    brushSize.oninput = (e) => brushSizeVal.textContent = e.target.value + "px";
+    qualityRange.oninput = (e) => qualityVal.textContent = e.target.value + "%";
+
+    // Mode Selector
+    document.querySelectorAll(".tab-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        currentMode = btn.dataset.mode;
+        colorKeyOptions.style.display = currentMode === "color_key" ? "flex" : "none";
+        maskOptions.style.display = currentMode === "mask" ? "flex" : "none";
+        if (currentMode === "color_key") {
+          actionHint.textContent = "🖱️ プレビュー画像上をクリックして透過させたい色を採取してください";
+          maskCanvas.style.pointerEvents = "none";
+        } else if (currentMode === "mask") {
+          actionHint.textContent = "🖌️ 透過させたい領域をマウスドラッグで塗ってください（赤マスク部分が消去されます）";
+          maskCanvas.style.pointerEvents = "auto";
+        } else if (currentMode === "ai") {
+          actionHint.textContent = "🤖 AI（rembg）が被写体を残して背景を自動除去します";
+          maskCanvas.style.pointerEvents = "none";
+        } else {
+          actionHint.textContent = "";
+          maskCanvas.style.pointerEvents = "none";
+        }
+      });
+    });
+
+    // Upload Handlers
+    dropZone.onclick = () => fileInput.click();
+    fileInput.onchange = (e) => {
+      if (e.target.files && e.target.files[0]) loadFile(e.target.files[0]);
+    };
+    dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add("drag-over"); };
+    dropZone.ondragleave = () => dropZone.classList.remove("drag-over");
+    dropZone.ondrop = (e) => {
+      e.preventDefault();
+      dropZone.classList.remove("drag-over");
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+    };
+
+    function loadFile(file) {
+      document.getElementById("outFilename").value = file.name.replace(/\.[^/.]+$/, "") + ".webp";
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const b64 = e.target.result;
+        currentBase64Image = b64;
+        originalImage = b64;
+        historyStack = [b64];
+        
+        renderBase64ToCanvas(b64, () => {
+          emptyState.style.display = "none";
+          mainCanvas.style.display = "block";
+          maskCanvas.style.display = "block";
+          imageInfoText.textContent = `${file.name} (${mainCanvas.width} × ${mainCanvas.height}px)`;
+          actionHint.textContent = "✅ 画像を読み込みました。各ステップの処理ボタンを押して編集できます。";
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function renderBase64ToCanvas(base64Str, onComplete) {
+      const img = new Image();
+      img.onload = () => {
+        mainCanvas.width = img.width;
+        mainCanvas.height = img.height;
+        maskCanvas.width = img.width;
+        maskCanvas.height = img.height;
+
+        mainCtx.clearRect(0, 0, img.width, img.height);
+        mainCtx.drawImage(img, 0, 0);
+        maskCtx.clearRect(0, 0, img.width, img.height);
+        if (onComplete) onComplete();
+      };
+      img.src = base64Str;
+    }
+
+    let seedCoords = null;
+
+    // Eyedropper on Canvas Click
+    mainCanvas.addEventListener("click", (e) => {
+      if (currentMode !== "color_key" || !currentBase64Image) return;
+      const rect = mainCanvas.getBoundingClientRect();
+      const scaleX = mainCanvas.width / rect.width;
+      const scaleY = mainCanvas.height / rect.height;
+      const x = Math.floor((e.clientX - rect.left) * scaleX);
+      const y = Math.floor((e.clientY - rect.top) * scaleY);
+      seedCoords = { x, y };
+
+      const pixel = mainCtx.getImageData(x, y, 1, 1).data;
+      const hex = "#" + ((1 << 24) + (pixel[0] << 16) + (pixel[1] << 8) + pixel[2]).toString(16).slice(1);
+      selectedColor = hex;
+      colorSwatch.style.background = hex;
+      hexColorInput.value = hex;
+      actionHint.textContent = `🎯 選択色: ${hex} (座標: ${x}, ${y}) を境界基準色としてセットしました`;
+    });
+
+    hexColorInput.oninput = (e) => {
+      selectedColor = e.target.value;
+      colorSwatch.style.background = e.target.value;
+    };
+
+    // Preset Buttons Click
+    document.querySelectorAll(".preset-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.getElementById("outWidth").value = btn.dataset.w;
+        document.getElementById("outHeight").value = btn.dataset.h;
+        document.getElementById("fitMode").value = btn.dataset.fit;
+        actionHint.textContent = `🎯 プリセット (${btn.dataset.w} × ${btn.dataset.h}px [${btn.dataset.fit}]) をセットしました`;
+      });
+    });
+
+    // Flip Buttons Click
+    document.getElementById("flipHBtn").onclick = () => {
+      executeFlip("horizontal", "画像を左右反転中...");
+    };
+    document.getElementById("flipVBtn").onclick = () => {
+      executeFlip("vertical", "画像を上下反転中...");
+    };
+
+    async function executeFlip(direction, msg) {
+      if (!currentBase64Image) {
+        alert("まず画像をアップロードしてください。");
+        return;
+      }
+      loadingOverlay.style.display = "flex";
+      loadingText.textContent = msg;
+      try {
+        const formData = new FormData();
+        formData.append("step", "flip");
+        formData.append("image_base64", currentBase64Image);
+        formData.append("flip_dir", direction);
+        formData.append("filename", document.getElementById("outFilename").value);
+
+        const res = await fetch("/api/process-step", { method: "POST", body: formData });
+        if (!res.ok) throw new Error("反転処理に失敗しました");
+        const data = await res.json();
+
+        currentBase64Image = data.image_base64;
+        historyStack.push(data.image_base64);
+
+        renderBase64ToCanvas(data.image_base64, () => {
+          loadingOverlay.style.display = "none";
+          actionHint.textContent = direction === "horizontal" ? "↔️ 左右反転を適用しました" : "↕️ 上下反転を適用しました";
+        });
+      } catch (err) {
+        loadingOverlay.style.display = "none";
+        alert("エラー: " + err.message);
+      }
+    }
+
+    // Magic Eraser Button Click
+    document.getElementById("magicEraserBtn").onclick = () => {
+      executeStep("magic_eraser", "🪄 消しゴムマジック（不要物を周囲の背景で修復・消去中...）");
+    };
+
+    // Mask Drawing
+
+    maskCanvas.addEventListener("mousedown", (e) => {
+      if (currentMode !== "mask") return;
+      isDrawing = true;
+      drawBrush(e);
+    });
+    window.addEventListener("mouseup", () => isDrawing = false);
+    maskCanvas.addEventListener("mousemove", (e) => {
+      if (!isDrawing || currentMode !== "mask") return;
+      drawBrush(e);
+    });
+    function drawBrush(e) {
+      const rect = maskCanvas.getBoundingClientRect();
+      const scaleX = maskCanvas.width / rect.width;
+      const scaleY = maskCanvas.height / rect.height;
+      const x = (e.clientX - rect.left) * scaleX;
+      const y = (e.clientY - rect.top) * scaleY;
+      const size = parseInt(brushSize.value, 10);
+      maskCtx.fillStyle = "rgba(255, 0, 0, 1.0)";
+      maskCtx.beginPath();
+      maskCtx.arc(x, y, size, 0, Math.PI * 2);
+      maskCtx.fill();
+    }
+    document.getElementById("clearMaskBtn").onclick = () => {
+      maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+      actionHint.textContent = "🧹 描画マスクをリセットしました";
+    };
+
+    // Build Request FormData
+    function buildFormData(stepType) {
+      const formData = new FormData();
+      formData.append("step", stepType);
+      formData.append("image_base64", currentBase64Image);
+      formData.append("transparency_mode", currentMode);
+      formData.append("target_color", selectedColor);
+      formData.append("tolerance", toleranceRange.value);
+      formData.append("feather", featherRange.value);
+      formData.append("crop_bounds", document.getElementById("cropBounds").checked);
+      formData.append("width", document.getElementById("outWidth").value);
+      formData.append("height", document.getElementById("outHeight").value);
+      formData.append("fit_mode", document.getElementById("fitMode").value);
+      formData.append("quality", qualityRange.value);
+      formData.append("save_to_game", document.getElementById("saveToGame").checked);
+      formData.append("filename", document.getElementById("outFilename").value);
+
+      formData.append("contiguous_only", document.getElementById("contiguousOnly").checked);
+      formData.append("edge_aware", document.getElementById("edgeAware").checked);
+      if (seedCoords) {
+        formData.append("seed_x", seedCoords.x);
+        formData.append("seed_y", seedCoords.y);
+      }
+
+      if (currentMode === "mask") {
+        const tempMaskCanvas = document.createElement("canvas");
+        tempMaskCanvas.width = maskCanvas.width;
+        tempMaskCanvas.height = maskCanvas.height;
+        const tCtx = tempMaskCanvas.getContext("2d");
+        
+        tCtx.clearRect(0, 0, tempMaskCanvas.width, tempMaskCanvas.height);
+        tCtx.drawImage(maskCanvas, 0, 0);
+
+        const imgData = tCtx.getImageData(0, 0, tempMaskCanvas.width, tempMaskCanvas.height);
+        const d = imgData.data;
+        for (let i = 0; i < d.length; i += 4) {
+          if (d[i] > 100 && d[i+3] > 30) {
+            d[i] = 255; d[i+1] = 255; d[i+2] = 255; d[i+3] = 255;
+          } else {
+            d[i] = 0; d[i+1] = 0; d[i+2] = 0; d[i+3] = 255;
+          }
+        }
+        tCtx.putImageData(imgData, 0, 0);
+        formData.append("mask_data", tempMaskCanvas.toDataURL("image/png"));
+      }
+      return formData;
+    }
+
+
+
+    // Generic Request Executor
+    async function executeStep(stepType, loadingMessage) {
+      if (!currentBase64Image) {
+        alert("まず画像をアップロードしてください。");
+        return;
+      }
+      loadingOverlay.style.display = "flex";
+      loadingText.textContent = loadingMessage;
+
+      try {
+        const formData = buildFormData(stepType);
+        const res = await fetch("/api/process-step", { method: "POST", body: formData });
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.detail || "処理に失敗しました");
+        }
+        const data = await res.json();
+
+        // Update state and push to history
+        currentBase64Image = data.image_base64;
+        historyStack.push(data.image_base64);
+
+        renderBase64ToCanvas(data.image_base64, () => {
+          downloadBtn.href = data.image_base64;
+          downloadBtn.download = data.filename;
+          downloadBtn.style.display = "inline-flex";
+
+          const sizeKb = (data.size_bytes / 1024).toFixed(1);
+          let saveMsg = data.saved_path ? ` | 💾 ゲーム保存済: ${data.saved_path}` : "";
+          resultStats.textContent = `現在サイズ: ${data.width} × ${data.height}px (${sizeKb} KB)${saveMsg}`;
+          imageInfoText.textContent = `${data.filename} (${data.width} × ${data.height}px)`;
+          loadingOverlay.style.display = "none";
+        });
+
+      } catch (err) {
+        loadingOverlay.style.display = "none";
+        alert("エラー: " + err.message);
+      }
+    }
+
+    // 1. Transparency step button
+    applyTransBtn.onclick = () => {
+      const msg = currentMode === "ai" ? "AI背景透過を実行中..." : "透過処理を適用中...";
+      executeStep("transparent", msg);
+    };
+
+    // 2. Resize step button
+    applyResizeBtn.onclick = () => {
+      executeStep("resize", "指定解像度にリサイズ中...");
+    };
+
+    // 3. Export / Save WebP button
+    exportWebpBtn.onclick = () => {
+      executeStep("export", "WebPとしてエンコード・保存中...");
+    };
+
+    // 4. Full Pipeline Master button
+    processAllBtn.onclick = () => {
+      executeStep("all", "全ステップ（透過＋リサイズ＋WebP）を一括実行中...");
+    };
+
+    // Undo Handler
+    undoBtn.onclick = () => {
+      if (historyStack.length > 1) {
+        historyStack.pop(); // Remove current
+        const prev = historyStack[historyStack.length - 1];
+        currentBase64Image = prev;
+        renderBase64ToCanvas(prev, () => {
+          actionHint.textContent = "↩️ 1つ前の編集状態に戻しました";
+          imageInfoText.textContent = `画像 (${mainCanvas.width} × ${mainCanvas.height}px)`;
+        });
+      } else {
+        alert("これ以上戻せる履歴がありません。");
+      }
+    };
+
+    // Reset to Original
+    resetOriginalBtn.onclick = () => {
+      if (originalImage) {
+        currentBase64Image = originalImage;
+        historyStack = [originalImage];
+        renderBase64ToCanvas(originalImage, () => {
+          actionHint.textContent = "🔄 アップロード直後の初期状態にリセットしました";
+          imageInfoText.textContent = `初期画像 (${mainCanvas.width} × ${mainCanvas.height}px)`;
+          downloadBtn.style.display = "none";
+          resultStats.textContent = "";
+        });
+      }
+    };
+  </script>
+</body>
+</html>
