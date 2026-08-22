@@ -4,3 +4,10 @@ node_modules/
 .env
 dist/
 build/
+
+
+# Local environment variables
+.env.local
+.env.*.local
+.env.production
+
