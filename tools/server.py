@@ -81,6 +81,72 @@ def process_step():
         if step == "flip":
             pil_img = ip.flip_image(pil_img, direction=flip_dir)
 
+        # 0.4 スタンプ抽出ステップ（エッジ切り抜き）
+        if step == "extract_stamp":
+            bbox = None
+            if request.form.get("bbox_x") and request.form.get("bbox_w"):
+                bx = int(request.form.get("bbox_x"))
+                by = int(request.form.get("bbox_y", 0))
+                bw = int(request.form.get("bbox_w"))
+                bh = int(request.form.get("bbox_h"))
+                bbox = (bx, by, bw, bh)
+            mask_img = None
+            if mask_data:
+                header, encoded = mask_data.split(",", 1) if "," in mask_data else ("", mask_data)
+                mask_bytes = base64.b64decode(encoded)
+                mask_img = Image.open(io.BytesIO(mask_bytes))
+            pil_img = ip.extract_edge_stamp(
+                pil_img,
+                bbox=bbox,
+                mask_img=mask_img,
+                edge_aware=edge_aware,
+                feather=feather
+            )
+
+        # 0.45 瓦礫自動抽出ステップ
+        if step == "auto_debris":
+            patches = ip.auto_extract_debris_patches(pil_img)
+            results = []
+            for p_img, (bx, by, bw, bh) in patches:
+                buf = io.BytesIO()
+                p_img.save(buf, format="WEBP", quality=90)
+                b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+                results.append({
+                    "image_base64": f"data:image/webp;base64,{b64}",
+                    "width": p_img.width,
+                    "height": p_img.height,
+                    "bbox": [bx, by, bw, bh]
+                })
+            return jsonify({
+                "status": "success",
+                "step": step,
+                "count": len(results),
+                "patches": results
+            })
+
+        # 0.48 スタンプ合成・貼り付けステップ
+        if step == "paste_stamp":
+            stamp_b64 = request.form.get("stamp_base64", "")
+            if stamp_b64:
+                header, encoded = stamp_b64.split(",", 1) if "," in stamp_b64 else ("", stamp_b64)
+                stamp_pil = Image.open(io.BytesIO(base64.b64decode(encoded))).convert("RGBA")
+                px = int(request.form.get("pos_x", 0))
+                py = int(request.form.get("pos_y", 0))
+                scale = float(request.form.get("scale", 1.0))
+                angle = float(request.form.get("angle", 0.0))
+                st_flip_h = request.form.get("stamp_flip_h") == "true"
+                st_flip_v = request.form.get("stamp_flip_v") == "true"
+                pil_img = ip.paste_stamp_on_image(
+                    pil_img,
+                    stamp_pil,
+                    pos_x=px,
+                    pos_y=py,
+                    scale=scale,
+                    angle=angle,
+                    flip_h=st_flip_h,
+                    flip_v=st_flip_v
+                )
+
         # 0.5 消しゴムマジック処理ステップ (OpenCV Inpainting)
         if step == "magic_eraser":
             mask_img = None

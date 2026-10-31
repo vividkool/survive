@@ -219,6 +219,153 @@ def apply_mask_transparency(pil_img: Image.Image, mask_img: Image.Image) -> Imag
     return Image.fromarray(src_np)
 
 
+def extract_edge_stamp(
+    pil_img: Image.Image,
+    bbox: Optional[Tuple[int, int, int, int]] = None,
+    mask_img: Optional[Image.Image] = None,
+    edge_aware: bool = True,
+    feather: int = 0
+) -> Image.Image:
+    """
+    指定領域（bbox または mask_img）から、エッジ（輪郭）を極力活かした鮮鋭な切り抜きスタンプ（RGBA）を抽出します。
+    - edge_aware: Cannyエッジ検出と輪郭抽出により、選択領域内の物体の境界線（エッジ）をくっきりと保護して背景を透過処理。
+    """
+    src_rgba = pil_img.convert("RGBA")
+    src_np = np.array(src_rgba)
+    h, w = src_np.shape[:2]
+
+    if bbox:
+        bx, by, bw, bh = bbox
+        bx = max(0, min(w - 1, bx))
+        by = max(0, min(h - 1, by))
+        bw = max(1, min(w - bx, bw))
+        bh = max(1, min(h - by, bh))
+    else:
+        bx, by, bw, bh = 0, 0, w, h
+
+    cropped_np = src_np[by:by+bh, bx:bx+bw].copy()
+
+    if mask_img is not None:
+        mask_rgba = mask_img.convert("RGBA").resize((w, h), Image.Resampling.NEAREST)
+        mask_cropped = np.array(mask_rgba)[by:by+bh, bx:bx+bw]
+        region_mask = (mask_cropped[:, :, 0] > 128) | (mask_cropped[:, :, 3] > 128)
+    else:
+        region_mask = np.ones((bh, bw), dtype=bool)
+
+    if edge_aware and cv2 is not None:
+        bgr = cv2.cvtColor(cropped_np[:, :, :3], cv2.COLOR_RGB2BGR)
+        gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
+        edges = cv2.Canny(gray, 40, 120)
+
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+        dilated = cv2.dilate(edges, kernel, iterations=2)
+
+        contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contour_mask = np.zeros((bh, bw), dtype=np.uint8)
+        if contours:
+            cv2.drawContours(contour_mask, contours, -1, 255, thickness=cv2.FILLED)
+
+        final_alpha_mask = np.where(region_mask & (contour_mask > 0), 255, 0).astype(np.uint8)
+    else:
+        final_alpha_mask = np.where(region_mask, 255, 0).astype(np.uint8)
+
+    cropped_np[:, :, 3] = np.minimum(cropped_np[:, :, 3], final_alpha_mask)
+
+    if feather > 0 and cv2 is not None:
+        alpha = cropped_np[:, :, 3]
+        alpha_blurred = cv2.GaussianBlur(alpha, (feather * 2 + 1, feather * 2 + 1), 0)
+        cropped_np[:, :, 3] = alpha_blurred
+
+    result = Image.fromarray(cropped_np)
+    return crop_bounding_box(result)
+
+
+def auto_extract_debris_patches(
+    pil_img: Image.Image,
+    min_area: int = 300,
+    max_area: int = 150000
+) -> List[Tuple[Image.Image, Tuple[int, int, int, int]]]:
+    """
+    元画像から輪郭（Contour / Canny）抽出で瓦礫の塊を個別の独立パーツ（透過WebP/PNG）として全自動切り出し。
+    戻り値: [(stamp_pil_image, (x, y, w, h)), ...]
+    """
+    if cv2 is None:
+        return []
+
+    src_rgba = pil_img.convert("RGBA")
+    src_np = np.array(src_rgba)
+    h, w = src_np.shape[:2]
+
+    bgr = cv2.cvtColor(src_np[:, :, :3], cv2.COLOR_RGB2BGR)
+    gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
+    
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    edges = cv2.Canny(blurred, 30, 120)
+
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    dilated = cv2.dilate(edges, kernel, iterations=2)
+
+    contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    patches = []
+    for cnt in contours:
+        area = cv2.contourArea(cnt)
+        if min_area <= area <= max_area:
+            x, y, bw, bh = cv2.boundingRect(cnt)
+            if bw < 10 or bh < 10:
+                continue
+
+            cnt_mask = np.zeros((bh, bw), dtype=np.uint8)
+            cnt_shifted = cnt - [x, y]
+            cv2.drawContours(cnt_mask, [cnt_shifted], -1, 255, thickness=cv2.FILLED)
+
+            patch_np = src_np[y:y+bh, x:x+bw].copy()
+            patch_np[:, :, 3] = np.minimum(patch_np[:, :, 3], cnt_mask)
+
+            patch_pil = Image.fromarray(patch_np)
+            cropped_patch = crop_bounding_box(patch_pil)
+            if cropped_patch.width > 5 and cropped_patch.height > 5:
+                patches.append((cropped_patch, (x, y, bw, bh)))
+
+    return patches
+
+
+def paste_stamp_on_image(
+    base_img: Image.Image,
+    stamp_img: Image.Image,
+    pos_x: int,
+    pos_y: int,
+    scale: float = 1.0,
+    angle: float = 0.0,
+    flip_h: bool = False,
+    flip_v: bool = False
+) -> Image.Image:
+    """
+    ベース画像の上にスタンプ画像を指定位置 (pos_x, pos_y) で合成します。
+    """
+    stamp = stamp_img.convert("RGBA")
+
+    if flip_h:
+        stamp = stamp.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+    if flip_v:
+        stamp = stamp.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
+
+    if scale != 1.0 and scale > 0.05:
+        new_w = max(1, int(stamp.width * scale))
+        new_h = max(1, int(stamp.height * scale))
+        stamp = stamp.resize((new_w, new_h), Image.Resampling.LANCZOS)
+
+    if angle != 0.0:
+        stamp = stamp.rotate(-angle, expand=True, resample=Image.Resampling.BICUBIC)
+
+    base = base_img.convert("RGBA")
+    paste_x = pos_x - stamp.width // 2
+    paste_y = pos_y - stamp.height // 2
+
+    base.paste(stamp, (paste_x, paste_y), stamp)
+    return base
+
+
 
 
 def resize_and_pad(pil_img: Image.Image, target_width: int, target_height: int, fit_mode: str = "contain") -> Image.Image:
